@@ -43,7 +43,10 @@ export async function spawnAgent(opts: {
   }
   await Bun.write(`${base}.launch.sh`, `#!/usr/bin/env bash\n${launch}\n`);
 
-  const target = await tmux.newSession(name, `bash ${base}.launch.sh`, { configPath: `${base}.tmux.conf` });
+  const target = await tmux.newSession(name, `bash ${base}.launch.sh`, {
+    configPath: `${base}.tmux.conf`,
+    cwd,
+  });
   registry.upsert({
     id: name,
     agent,
