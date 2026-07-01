@@ -7,3 +7,6 @@ dist/
 
 # Local design drafts (specs, plans) — kept local, not versioned
 docs/superpowers/
+
+# Local spikes (throwaway investigation) — kept local, not versioned
+spikes/
