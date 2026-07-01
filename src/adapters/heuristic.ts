@@ -17,7 +17,8 @@ export function startHeuristicPoller(
   let stableSince = Date.now();
   let reported = false;
   const timer = setInterval(async () => {
-    const curr = await tmux.capturePane(target);
+    const curr = await tmux.capturePane(target).catch(() => undefined);
+    if (curr == null) return;
     if (curr !== prev) {
       prev = curr;
       stableSince = Date.now();
