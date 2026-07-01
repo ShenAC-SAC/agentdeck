@@ -353,6 +353,19 @@ body::before {
   background: rgba(226, 165, 76, 0.1);
 }
 
+.workspace-session__close {
+  opacity: 0;
+  border: none;
+  background: transparent;
+  color: var(--tone-error, #d98c7a);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.workspace-session:hover .workspace-session__close,
+.workspace-session__close:focus-visible {
+  opacity: 1;
+}
+
 .workspace-rail__new {
   margin-top: auto;
   padding-top: 18px;

@@ -17,6 +17,7 @@ export function WorkspaceRail({
   onRemoteShellDeferred,
   onNewTerminal,
   onRenameTerminal,
+  onCloseTerminal,
 }: {
   groups: WorkspaceGroup[];
   selected: MainView;
@@ -28,6 +29,7 @@ export function WorkspaceRail({
   onRemoteShellDeferred: () => void;
   onNewTerminal: (workspace: { host: string; cwd: string }) => void;
   onRenameTerminal: (sessionId: string, currentTitle: string) => void;
+  onCloseTerminal: (sessionId: string, title: string) => void;
 }) {
   const agents = availableAgents.filter((a) => a.available);
   return (
@@ -99,6 +101,15 @@ export function WorkspaceRail({
                       onClick={() => onRenameTerminal(session.id, session.title)}
                     >
                       ✎
+                    </button>
+                    <button
+                      className="workspace-session__close"
+                      type="button"
+                      title={`Close ${session.title}`}
+                      aria-label={`Close ${session.title}`}
+                      onClick={() => onCloseTerminal(session.id, session.title)}
+                    >
+                      ✕
                     </button>
                   </div>
                 );

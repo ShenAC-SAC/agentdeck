@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  closeSession,
   getAgents,
   getSessions,
   jump,
@@ -147,6 +148,16 @@ export function App() {
     setSessions((prev) => new Map(prev).set(updated.id, updated));
   }
 
+  async function onCloseTerminal(sessionId: string, title: string) {
+    if (!window.confirm(`Close "${title}"? This ends its tmux session.`)) return;
+    const res = await closeSession(sessionId);
+    if (!res.ok) {
+      setToast(res.error || "close failed");
+      setTimeout(() => setToast(""), 4500);
+    }
+    // The SSE remove event will drop the card; no optimistic delete needed.
+  }
+
   const openSession = view.kind === "session" ? sessions.get(view.id) : undefined;
   const showTerminal = view.kind === "session" && hasPty();
 
@@ -163,6 +174,7 @@ export function App() {
         onRemoteShellDeferred={onRemoteShellDeferred}
         onNewTerminal={onNewTerminal}
         onRenameTerminal={onRenameTerminal}
+        onCloseTerminal={onCloseTerminal}
       />
 
       <section className="main">
