@@ -31,6 +31,19 @@ if (cmd === "new") {
   const sessions = (await res.json()) as Session[];
   if (sessions.length === 0) console.log("(no sessions)");
   for (const s of sessions) console.log(`${s.state}\t${s.agent}\t${s.title}\t${s.tmuxTarget}`);
+} else if (cmd === "gui") {
+  // Open the web dashboard. Reuse a running hub if there is one; otherwise
+  // start a headless hub (no TUI) and keep this process alive to host it.
+  const reachable = await fetch(`http://localhost:${PORT}/sessions`)
+    .then((r) => r.ok)
+    .catch(() => false);
+  if (!reachable) {
+    const hub = startHub(PORT);
+    wireNotifications(hub.events);
+  }
+  Bun.spawn(["open", `http://localhost:${PORT}/`]);
+  console.log(`AgentDeck GUI at http://localhost:${PORT}/  (Ctrl-C to stop)`);
+  if (!reachable) await new Promise(() => {}); // hold the hub open
 } else {
   // No subcommand: this process is the deck hub + TUI. Keep it running.
   const hub = startHub(PORT);
