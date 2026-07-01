@@ -449,8 +449,7 @@ body::before {
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.12s ease;
 }
 
-.spawn__select:hover,
-.spawn__btn:hover {
+.spawn__select:hover {
   border-color: var(--brass-soft);
   background: var(--surface-hi);
 }
@@ -459,12 +458,16 @@ body::before {
   color: #201603;
   font-weight: 600;
   letter-spacing: 0.3px;
-  background: linear-gradient(180deg, #f0b95e, var(--brass));
-  border-color: transparent;
+  background: linear-gradient(180deg, #f4c774, var(--brass));
+  border-color: rgba(255, 217, 148, 0.55);
   box-shadow: 0 10px 22px -12px rgba(226, 165, 76, 0.8);
 }
 
 .spawn__btn:hover {
+  color: #1d1302;
+  background: linear-gradient(180deg, #ffd486, #e4a64e);
+  border-color: rgba(255, 223, 164, 0.85);
+  box-shadow: 0 12px 26px -13px rgba(226, 165, 76, 0.95);
   transform: translateY(-1px);
 }
 
