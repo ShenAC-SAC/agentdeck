@@ -87,16 +87,29 @@ export function App() {
     }
   }
 
-  async function onNewSession() {
-    const dir = await pickFolder();
-    if (dir === null) return;
-    const id = await spawn(agent, dir);
+  async function openSpawn(agentToSpawn: AgentKind, host: string, cwd: string) {
+    const id = await spawn({ agent: agentToSpawn, host, cwd });
     if (!id) {
       setToast("spawn failed");
       setTimeout(() => setToast(""), 4500);
       return;
     }
-    if (hasPty()) setView({ kind: "session", id }); // straight into the new session's terminal
+    if (hasPty()) setView({ kind: "session", id });
+  }
+
+  async function onAddWorkspace() {
+    const dir = await pickFolder();
+    if (dir === null) return;
+    await openSpawn(agent, "local", dir);
+  }
+
+  async function onNewTerminal(workspace: { host: string; cwd: string }) {
+    if (workspace.host !== "local") {
+      setToast("remote shell arrives in the next task");
+      setTimeout(() => setToast(""), 4500);
+      return;
+    }
+    await openSpawn(agent, workspace.host, workspace.cwd);
   }
 
   const openSession = view.kind === "session" ? sessions.get(view.id) : undefined;
@@ -111,7 +124,8 @@ export function App() {
         availableAgents={availableAgents}
         onAgentChange={setAgent}
         onSelect={onSelect}
-        onNewSession={onNewSession}
+        onAddWorkspace={onAddWorkspace}
+        onNewTerminal={onNewTerminal}
       />
 
       <section className="main">

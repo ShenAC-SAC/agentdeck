@@ -26,8 +26,15 @@ export function subscribe(onSession: (s: Session) => void): () => void {
   return () => es.close();
 }
 
-export async function spawn(agent: AgentKind, cwd?: string): Promise<string | undefined> {
-  const res = await fetch("/spawn", { method: "POST", body: JSON.stringify({ agent, cwd }) });
+export interface SpawnRequest {
+  agent: AgentKind;
+  cwd: string;
+  host?: string;
+  mode?: "agent" | "shell";
+}
+
+export async function spawn(req: SpawnRequest): Promise<string | undefined> {
+  const res = await fetch("/spawn", { method: "POST", body: JSON.stringify(req) });
   if (!res.ok) return undefined;
   const { id } = (await res.json()) as { id?: string };
   return id;

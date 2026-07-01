@@ -4,6 +4,7 @@ import { claudeSettings, codexNotifyScript } from "../adapters/install";
 import { startHeuristicPoller } from "../adapters/heuristic";
 import type { AgentKind } from "../types";
 import type { Registry } from "../hub/registry";
+import { defaultTerminalTitle } from "../workspace";
 
 const tmpDir = () => process.env.TMPDIR ?? "/tmp";
 
@@ -50,7 +51,7 @@ export async function spawnAgent(opts: {
   registry.upsert({
     id: name,
     agent,
-    title: opts.title ?? name,
+    title: opts.title ?? defaultTerminalTitle(agent, "local", cwd),
     tmuxTarget: target,
     cwd,
     host: "local",

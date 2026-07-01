@@ -202,6 +202,23 @@ body::before {
   padding: 0 10px 3px;
 }
 
+.workspace-group__add {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.workspace-group__add:hover {
+  color: var(--brass);
+  border-color: var(--brass);
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .workspace-group__name {
   min-width: 0;
   overflow: hidden;

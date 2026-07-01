@@ -171,6 +171,24 @@ test.skipIf(!hasTmux)("POST /spawn stores a validated cwd on the session", async
   }
 });
 
+test.skipIf(!hasTmux)("POST /spawn gives local terminals a human title", async () => {
+  const hub = startHub(8814);
+  let spawnedId: string | undefined;
+  try {
+    const res = await fetch("http://localhost:8814/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "generic", cwd: "/tmp" }),
+    });
+    expect(res.status).toBe(200);
+    const spawned = (await res.json()) as { id: string };
+    spawnedId = spawned.id;
+    expect(hub.registry.get(spawned.id)?.title).toBe("Shell · tmp");
+  } finally {
+    if (spawnedId) Bun.spawnSync(["tmux", "-L", "deck", "kill-session", "-t", spawnedId]);
+    hub.stop();
+  }
+});
+
 test.skipIf(!hasTmux)("POST /spawn reports spawn failures with a readable body", async () => {
   const path = "/tmp/agentdeck-tmpdir-file";
   await Bun.write(path, "not a directory");

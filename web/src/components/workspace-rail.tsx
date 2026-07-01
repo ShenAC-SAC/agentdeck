@@ -13,7 +13,8 @@ export function WorkspaceRail({
   availableAgents,
   onAgentChange,
   onSelect,
-  onNewSession,
+  onAddWorkspace,
+  onNewTerminal,
 }: {
   groups: WorkspaceGroup[];
   selected: MainView;
@@ -21,7 +22,8 @@ export function WorkspaceRail({
   availableAgents: AgentAvailability[];
   onAgentChange: (agent: AgentKind) => void;
   onSelect: (view: MainView) => void;
-  onNewSession: () => void;
+  onAddWorkspace: () => void;
+  onNewTerminal: (workspace: { host: string; cwd: string }) => void;
 }) {
   const agents = availableAgents.filter((a) => a.available);
   return (
@@ -43,12 +45,20 @@ export function WorkspaceRail({
 
       <div className="workspace-rail__groups">
         {groups.map((group) => (
-          <section key={group.cwd} className="workspace-group">
+          <section key={group.key} className="workspace-group">
             <div className="workspace-group__head" title={group.cwd}>
               <span className="workspace-group__name">{group.name}</span>
               <span className="nav-item__meta">
                 {group.waiting > 0 ? <span className="nav-item__badge">{group.waiting}</span> : null}
                 <span className="nav-item__count">{group.sessions.length}</span>
+                <button
+                  className="workspace-group__add"
+                  type="button"
+                  title={`New terminal in ${group.name}`}
+                  onClick={() => onNewTerminal({ host: group.host, cwd: group.cwd })}
+                >
+                  +
+                </button>
               </span>
             </div>
             <div className="workspace-group__sessions">
@@ -90,8 +100,8 @@ export function WorkspaceRail({
             </option>
           ))}
         </select>
-        <button className="spawn__btn" type="button" onClick={onNewSession}>
-          ＋ New session
+        <button className="spawn__btn" type="button" onClick={onAddWorkspace}>
+          ＋ Add workspace
         </button>
       </div>
     </nav>
