@@ -6,6 +6,7 @@ import { mapClaudeHook } from "../adapters/claude-code";
 import { mapCodexNotify } from "../adapters/codex";
 import { spawnAgent } from "../tmux/spawn";
 import { sseResponse } from "./sse";
+import { serveStatic } from "./static";
 import { tmux } from "../tmux/tmux";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
@@ -58,6 +59,12 @@ export function serve(port: number, registry: Registry, events: EventEmitter) {
         return new Response("ok");
       }
 
+      if (req.method === "GET") {
+        const asset = await serveStatic(url.pathname);
+        if (asset) return asset;
+        const index = await serveStatic("/");
+        if (index) return index; // SPA fallback
+      }
       return new Response("agentdeck");
     },
   });
