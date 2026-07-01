@@ -365,9 +365,9 @@ body::before {
   font-family: var(--font-mono);
   font-size: 12.5px;
   border-radius: 11px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text-dim);
+  border: 1px dashed color-mix(in srgb, var(--brass-soft) 40%, var(--line));
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-faint);
   padding: 10px 14px;
   cursor: pointer;
   transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
@@ -376,7 +376,7 @@ body::before {
 .workspace-rail__remote:hover {
   border-color: var(--brass-soft);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(226, 165, 76, 0.08);
 }
 
 /* ---- Main pane -------------------------------------------------------- */

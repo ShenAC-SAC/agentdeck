@@ -14,7 +14,7 @@ export function WorkspaceRail({
   onAgentChange,
   onSelect,
   onAddWorkspace,
-  onAddRemoteWorkspace,
+  onRemoteShellDeferred,
   onNewTerminal,
   onRenameTerminal,
 }: {
@@ -25,7 +25,7 @@ export function WorkspaceRail({
   onAgentChange: (agent: AgentKind) => void;
   onSelect: (view: MainView) => void;
   onAddWorkspace: () => void;
-  onAddRemoteWorkspace: () => void;
+  onRemoteShellDeferred: () => void;
   onNewTerminal: (workspace: { host: string; cwd: string }) => void;
   onRenameTerminal: (sessionId: string, currentTitle: string) => void;
 }) {
@@ -123,8 +123,13 @@ export function WorkspaceRail({
         <button className="spawn__btn" type="button" onClick={onAddWorkspace}>
           ＋ Add workspace
         </button>
-        <button className="workspace-rail__remote" type="button" onClick={onAddRemoteWorkspace}>
-          + Remote shell
+        <button
+          className="workspace-rail__remote"
+          type="button"
+          onClick={onRemoteShellDeferred}
+          title="Remote shell will be enabled after a real SSH target flow is designed"
+        >
+          Remote shell later
         </button>
       </div>
     </nav>

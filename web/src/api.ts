@@ -21,7 +21,8 @@ export async function getAgents(): Promise<AgentAvailability[]> {
 }
 
 export function subscribe(onSession: (s: Session) => void): () => void {
-  const es = new EventSource("/events/stream");
+  const EventSourceCtor = globalThis.EventSource as unknown as new (url: string) => EventSource;
+  const es = new EventSourceCtor("/events/stream");
   es.onmessage = (e) => onSession(JSON.parse(e.data) as Session);
   return () => es.close();
 }
@@ -33,11 +34,11 @@ export interface SpawnRequest {
   mode?: "agent" | "shell";
 }
 
-export async function spawn(req: SpawnRequest): Promise<string | undefined> {
+export async function spawn(req: SpawnRequest): Promise<{ ok: boolean; id?: string; error?: string }> {
   const res = await fetch("/spawn", { method: "POST", body: JSON.stringify(req) });
-  if (!res.ok) return undefined;
+  if (!res.ok) return { ok: false, error: await res.text() };
   const { id } = (await res.json()) as { id?: string };
-  return id;
+  return id ? { ok: true, id } : { ok: false, error: "spawn response did not include an id" };
 }
 
 export async function renameSessionTitle(
