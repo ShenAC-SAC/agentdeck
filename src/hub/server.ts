@@ -5,6 +5,7 @@ import { isAgentKind } from "../types";
 import { mapClaudeHook } from "../adapters/claude-code";
 import { mapCodexNotify } from "../adapters/codex";
 import { spawnAgent } from "../tmux/spawn";
+import { sseResponse } from "./sse";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
@@ -17,6 +18,10 @@ export function serve(port: number, registry: Registry, events: EventEmitter) {
 
       if (req.method === "GET" && url.pathname === "/sessions") {
         return Response.json(registry.list());
+      }
+
+      if (req.method === "GET" && url.pathname === "/events/stream") {
+        return sseResponse(events, registry);
       }
 
       if (req.method === "POST" && url.pathname === "/spawn") {

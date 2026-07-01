@@ -1,0 +1,33 @@
+import { test, expect } from "bun:test";
+import { startHub } from "../src/hub/hub";
+import type { Session } from "../src/types";
+
+const base: Session = {
+  id: "sse1",
+  agent: "generic",
+  title: "t",
+  tmuxTarget: "deck:0.0",
+  host: "local",
+  state: "idle",
+  lastActivityAt: 0,
+  lastSummaryLine: "",
+};
+
+test("SSE emits initial snapshot then live updates", async () => {
+  const hub = startHub(8810);
+  try {
+    hub.registry.upsert(base);
+    const res = await fetch("http://localhost:8810/events/stream");
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let acc = dec.decode((await reader.read()).value);
+    expect(acc).toContain("sse1");
+    hub.events.emit("update", { ...base, state: "waiting", lastSummaryLine: "hi" });
+    while (!acc.includes("waiting")) acc += dec.decode((await reader.read()).value);
+    expect(acc).toContain("waiting");
+    await reader.cancel();
+  } finally {
+    hub.stop();
+  }
+});
