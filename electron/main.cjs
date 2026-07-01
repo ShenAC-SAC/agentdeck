@@ -2,9 +2,10 @@
 // loads the same web dashboard in a native window, and keeps a menu-bar tray
 // whose badge shows how many sessions are waiting on you. The React frontend is
 // unchanged — the window just points at the hub's http server.
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, Notification } = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
+const http = require("node:http");
 const path = require("node:path");
 
 const PORT = Number(process.env.DECK_PORT || 8799);
@@ -19,6 +20,7 @@ let hub = null;
 let win = null;
 let tray = null;
 let pollTimer = null;
+let attentionStop = null;
 app.isQuitting = false;
 
 // node-pty (native, rebuilt for Electron) powers the embedded terminals.
@@ -109,7 +111,9 @@ function setupDialog() {
 function startHub() {
   hub = spawn("bun", [path.join("bin", "hub.ts")], {
     cwd: ROOT,
-    env: { ...process.env, DECK_PORT: String(PORT) },
+    // DECK_ELECTRON silences the hub's osascript notifications — the main
+    // process fires richer, clickable ones from watchForAttention() instead.
+    env: { ...process.env, DECK_PORT: String(PORT), DECK_ELECTRON: "1" },
     stdio: "inherit",
   });
   hub.on("error", (e) => console.error("failed to spawn hub (is `bun` on PATH?):", e.message));
@@ -321,9 +325,60 @@ async function refreshBadge() {
   }
 }
 
+// Subscribe to the hub's SSE stream and fire a clickable native notification
+// when a session first enters an attention state (waiting/error/stalled).
+// Clicking it surfaces the window and opens that session.
+function watchForAttention(port, targetWin) {
+  const prev = new Map(); // id -> last attention key
+  const attention = new Set(["waiting", "error"]);
+  const req = http.get({ host: "127.0.0.1", port, path: "/events/stream" }, (res) => {
+    let buf = "";
+    res.setEncoding("utf8");
+    res.on("data", (chunk) => {
+      buf += chunk;
+      let nl;
+      while ((nl = buf.indexOf("\n\n")) !== -1) {
+        const frame = buf.slice(0, nl);
+        buf = buf.slice(nl + 2);
+        if (frame.startsWith(":") || frame.startsWith("event: remove")) continue;
+        const line = frame.split("\n").find((l) => l.startsWith("data: "));
+        if (!line) continue;
+        let s;
+        try {
+          s = JSON.parse(line.slice(6));
+        } catch {
+          continue;
+        }
+        const stalled = s.state === "working" && s.staleSince != null;
+        const key = stalled ? "stalled" : s.state;
+        const was = prev.get(s.id);
+        prev.set(s.id, key);
+        const isAttention = attention.has(s.state) || stalled;
+        if (isAttention && was !== key) {
+          const n = new Notification({
+            title: `⚓ ${s.title}`,
+            body: s.lastSummaryLine || (stalled ? "looks stalled" : `is ${s.state}`),
+          });
+          n.on("click", () => {
+            if (targetWin && !targetWin.isDestroyed()) {
+              targetWin.show();
+              targetWin.focus();
+              targetWin.webContents.send("open-session", s.id);
+            }
+          });
+          n.show();
+        }
+      }
+    });
+  });
+  req.on("error", () => {});
+  return () => req.destroy();
+}
+
 function quit() {
   app.isQuitting = true;
   if (pollTimer) clearInterval(pollTimer);
+  if (attentionStop) attentionStop();
   for (const p of ptys.values()) {
     try {
       p.kill();
@@ -362,6 +417,7 @@ app.whenReady().then(async () => {
 
   await refreshBadge();
   pollTimer = setInterval(refreshBadge, 3000);
+  attentionStop = watchForAttention(PORT, win);
 
   app.on("activate", () => toggleWindow());
 });

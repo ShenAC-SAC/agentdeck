@@ -8,15 +8,17 @@ export function notifyText(s: Session): { title: string; body: string } {
   };
 }
 
-export function notifyWaiting(s: Session): void {
+function osascriptNotify(s: Session): void {
   const { title, body } = notifyText(s);
   const script = `display notification ${JSON.stringify(body)} with title ${JSON.stringify(title)}`;
   Bun.spawn(["osascript", "-e", script]);
 }
 
-// Wired by the CLI (not the hub core, so tests don't fire real notifications).
-export function wireNotifications(events: EventEmitter): void {
+// Fires on waiting/error. No-ops under Electron, whose main process owns richer
+// clickable notifications. `fire` is injectable for tests.
+export function wireNotifications(events: EventEmitter, fire: (s: Session) => void = osascriptNotify): void {
+  if (process.env.DECK_ELECTRON === "1") return;
   events.on("update", (s: Session) => {
-    if (s.state === "waiting") notifyWaiting(s);
+    if (s.state === "waiting" || s.state === "error") fire(s);
   });
 }

@@ -38,6 +38,12 @@ export function App() {
     if (id) setView({ kind: "session", id });
   }, []);
 
+  // Under Electron, clicking a native notification opens that session.
+  useEffect(() => {
+    const api = (window as unknown as { deckapp?: { onOpenSession: (cb: (id: string) => void) => void } }).deckapp;
+    api?.onOpenSession((id) => setView({ kind: "session", id }));
+  }, []);
+
   useEffect(() => {
     let alive = true;
     getSessions().then((list) => {

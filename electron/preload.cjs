@@ -27,3 +27,7 @@ contextBridge.exposeInMainWorld("deckpty", {
 contextBridge.exposeInMainWorld("deckdialog", {
   pickFolder: () => ipcRenderer.invoke("dialog:pickFolder"),
 });
+
+contextBridge.exposeInMainWorld("deckapp", {
+  onOpenSession: (cb) => ipcRenderer.on("open-session", (_e, id) => cb(id)),
+});
