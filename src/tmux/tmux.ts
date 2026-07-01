@@ -54,6 +54,9 @@ export const tmux = {
   capturePane(target: string): Promise<string> {
     return run(["capture-pane", "-p", "-t", target]);
   },
+  async setSessionOption(session: string, key: string, value: string): Promise<void> {
+    await run(["set-option", "-t", session, key, value]);
+  },
   async listClients(): Promise<ClientInfo[]> {
     return parseListClients(await run(["list-clients", "-F", "#{client_name}|#{client_activity}"]));
   },

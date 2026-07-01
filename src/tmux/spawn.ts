@@ -6,6 +6,7 @@ import type { AgentKind } from "../types";
 import type { Registry } from "../hub/registry";
 import { numberedTerminalTitle } from "../workspace";
 import { remoteTmuxNewSession, sshTargetFromHost } from "../remote/ssh";
+import { deckSessionOptions } from "../hub/rehydrate";
 
 const tmpDir = () => process.env.TMPDIR ?? "/tmp";
 
@@ -49,10 +50,14 @@ export async function spawnAgent(opts: {
     configPath: `${base}.tmux.conf`,
     cwd,
   });
+  const finalTitle = opts.title ?? numberedTerminalTitle(agent, "local", cwd, registry.list());
+  for (const [key, value] of deckSessionOptions({ agent, cwd, host: "local", title: finalTitle })) {
+    await tmux.setSessionOption(name, key, value).catch(() => {});
+  }
   registry.upsert({
     id: name,
     agent,
-    title: opts.title ?? numberedTerminalTitle(agent, "local", cwd, registry.list()),
+    title: finalTitle,
     tmuxTarget: target,
     cwd,
     host: "local",
