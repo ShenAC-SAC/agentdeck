@@ -13,6 +13,7 @@ const ROOT = path.join(__dirname, "..");
 const SMOKE = process.env.DECK_SMOKE === "1";
 const SHOT = process.env.DECK_SHOT || ""; // path: screenshot the embedded terminal then quit
 const SHOT_AGENT = process.env.DECK_SHOT_AGENT || "generic";
+const SHOT_CLICK_REMOTE = process.env.DECK_SHOT_CLICK_REMOTE === "1";
 
 let hub = null;
 let win = null;
@@ -215,6 +216,10 @@ async function runShotVerification() {
       await markWaiting(waiting.id, waitingText);
       await win.loadURL(URL);
       await sleep(1000);
+      if (SHOT_CLICK_REMOTE) {
+        await win.webContents.executeJavaScript(`document.querySelector(".workspace-rail__remote")?.click()`);
+        await sleep(400);
+      }
       await capturePng(overview);
     }
 
