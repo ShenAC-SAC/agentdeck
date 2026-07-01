@@ -1,7 +1,7 @@
 import type { Registry } from "./registry";
 import type { EventEmitter } from "node:events";
 import type { AdapterEvent } from "../adapters/types";
-import type { AgentKind } from "../types";
+import { isAgentKind } from "../types";
 import { mapClaudeHook } from "../adapters/claude-code";
 import { mapCodexNotify } from "../adapters/codex";
 import { spawnAgent } from "../tmux/spawn";
@@ -20,8 +20,9 @@ export function serve(port: number, registry: Registry, events: EventEmitter) {
       }
 
       if (req.method === "POST" && url.pathname === "/spawn") {
-        const body = (await req.json().catch(() => ({}))) as { agent?: AgentKind };
+        const body = (await req.json().catch(() => ({}))) as { agent?: unknown };
         if (!body.agent) return new Response("missing agent", { status: 400 });
+        if (!isAgentKind(body.agent)) return new Response("unknown agent", { status: 400 });
         const spawned = await spawnAgent({ agent: body.agent, name: `deck_${Date.now()}`, registry, hubPort: port });
         return Response.json({ id: spawned.id, target: spawned.target });
       }

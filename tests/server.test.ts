@@ -84,3 +84,20 @@ test("POST /spawn without agent -> 400", async () => {
     hub.stop();
   }
 });
+
+test("POST /spawn rejects unknown agent names", async () => {
+  const hub = startHub(8804);
+  try {
+    const res = await fetch("http://localhost:8804/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "claude" }),
+    });
+    if (res.ok) {
+      const spawned = (await res.json()) as { id?: string };
+      if (spawned.id) Bun.spawnSync(["tmux", "-L", "deck", "kill-session", "-t", spawned.id]);
+    }
+    expect(res.status).toBe(400);
+  } finally {
+    hub.stop();
+  }
+});
