@@ -270,6 +270,30 @@ test.skipIf(!hasTmux)("POST /spawn reports spawn failures with a readable body",
   }
 });
 
+test("DELETE /sessions/:id removes an unknown-tmux session and returns ok", async () => {
+  const hub = startHub(8817);
+  try {
+    hub.registry.upsert({ ...base, id: "gone", tmuxTarget: "gone:0.0" });
+    const removed = new Promise<Session>((res) => hub.events.once("remove", res));
+    const res = await fetch("http://localhost:8817/sessions/gone", { method: "DELETE" });
+    expect(res.status).toBe(200);
+    expect((await removed).id).toBe("gone");
+    expect(hub.registry.get("gone")).toBeUndefined();
+  } finally {
+    hub.stop();
+  }
+});
+
+test("DELETE /sessions/:id for unknown session -> 404", async () => {
+  const hub = startHub(8818);
+  try {
+    const res = await fetch("http://localhost:8818/sessions/nope", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  } finally {
+    hub.stop();
+  }
+});
+
 test("POST /jump for unknown session -> 404", async () => {
   const hub = startHub(8805);
   try {

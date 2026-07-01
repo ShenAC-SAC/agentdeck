@@ -125,6 +125,23 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         return new Response("ok");
       }
 
+      const closeMatch = req.method === "DELETE" ? url.pathname.match(/^\/sessions\/([^/]+)$/) : null;
+      if (closeMatch) {
+        const id = decodeURIComponent(closeMatch[1]);
+        const session = registry.get(id);
+        if (!session) return new Response("unknown session", { status: 404 });
+        if (session.host === "local") {
+          try {
+            await tmux.run(["kill-session", "-t", id]);
+          } catch {
+            // tmux session already gone; still drop it from the registry
+          }
+        }
+        const removed = registry.remove(id);
+        if (removed) events.emit("remove", removed);
+        return new Response("ok");
+      }
+
       if (req.method === "GET") {
         const asset = await serveStatic(url.pathname);
         if (asset) return asset;
