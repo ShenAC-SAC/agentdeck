@@ -8,17 +8,23 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "deck": "bun bin/deck.tsx"
+    "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
+    "deck": "bun bin/deck.tsx",
+    "web:dev": "vite",
+    "web:build": "vite build"
   },
   "dependencies": {
     "ink": "^7.1.0",
-    "react": "^19.2.7"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
     "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
     "ink-testing-library": "^4.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite": "^8.1.2"
   }
 }

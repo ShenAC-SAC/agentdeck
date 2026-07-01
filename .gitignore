@@ -11,3 +11,4 @@ docs/superpowers/
 # Local spikes (throwaway investigation) — kept local, not versioned
 spikes/
 tests/fixtures/
+web/dist/

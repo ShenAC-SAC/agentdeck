@@ -14,5 +14,6 @@
     "noEmit": true,
     "types": ["bun"]
   },
-  "include": ["src", "tests", "bin"]
+  "include": ["src", "tests", "bin"],
+  "exclude": ["web", "node_modules"]
 }
