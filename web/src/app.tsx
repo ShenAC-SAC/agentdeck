@@ -13,6 +13,8 @@ import type { AgentKind, Session, SessionState } from "./types";
 import { CrewCard } from "./components/crew-card";
 import { TerminalView } from "./components/terminal-view";
 import { WorkspaceRail, type MainView } from "./components/workspace-rail";
+import { AttentionPanel } from "./components/attention-panel";
+import { attentionItems } from "./attention";
 import { pickFolder } from "./host";
 import { hasPty } from "./pty";
 import { groupByWorkspace } from "./workspace";
@@ -86,6 +88,7 @@ export function App() {
   );
 
   const groups = useMemo(() => groupByWorkspace(all), [all]);
+  const attention = useMemo(() => attentionItems(all), [all]);
   const waiting = all.filter((s) => s.state === "waiting").length;
 
   // Under Electron, selecting a session opens its embedded terminal; in a plain
@@ -192,6 +195,7 @@ export function App() {
           )
         ) : (
           <>
+            <AttentionPanel items={attention} onOpen={(id) => onSelect({ kind: "session", id })} />
             <header className="main__bar">
               <div>
                 <h1 className="main__title">Overview</h1>
