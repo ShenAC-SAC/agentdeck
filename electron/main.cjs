@@ -158,6 +158,9 @@ async function typeIntoTerminal(text) {
     if (ch === "\n") {
       win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
       win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Enter" });
+    } else if (ch === "\u2028") {
+      win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter", modifiers: ["shift"] });
+      win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Enter", modifiers: ["shift"] });
     } else {
       win.webContents.sendInputEvent({ type: "char", keyCode: ch });
     }

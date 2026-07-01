@@ -5,6 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import type { Session } from "../types";
 import { moodFor } from "../mood";
 import { workspaceName } from "../workspace";
+import { installTerminalInputOverrides } from "../terminal-input";
 
 // Embedded terminal: an xterm bound to a node-pty that runs
 // `tmux -L deck attach -t <session>` in the main process. You see the agent's
@@ -37,6 +38,7 @@ export function TerminalView({ session, onBack }: { session: Session; onBack: ()
     void bridge.open(id, session.tmuxTarget, term.cols, term.rows);
     const offData = bridge.onData(id, (d) => term.write(d));
     const offExit = bridge.onExit(id, () => term.write("\r\n\x1b[2m[session detached]\x1b[0m\r\n"));
+    installTerminalInputOverrides(term, (data) => bridge.write(id, data));
     const input = term.onData((d) => bridge.write(id, d));
     const onResize = () => {
       fit.fit();
