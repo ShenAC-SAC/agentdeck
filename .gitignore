@@ -4,3 +4,6 @@ dist/
 .env
 .env.*
 .DS_Store
+
+# Local design drafts (specs, plans) — kept local, not versioned
+docs/superpowers/
