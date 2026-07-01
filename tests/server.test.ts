@@ -90,6 +90,46 @@ test("GET /agents returns agent availability", async () => {
   }
 });
 
+test("PATCH /sessions/:id/title renames an existing terminal", async () => {
+  const hub = startHub(8821);
+  try {
+    hub.registry.upsert({ ...base, id: "rename-me", title: "Old title" });
+    const got = new Promise<Session>((res) => hub.events.once("update", res));
+    const res = await fetch("http://localhost:8821/sessions/rename-me/title", {
+      method: "PATCH",
+      body: JSON.stringify({ title: "Review PR 3887" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Session;
+    expect(body.title).toBe("Review PR 3887");
+    expect(hub.registry.get("rename-me")?.title).toBe("Review PR 3887");
+    expect((await got).title).toBe("Review PR 3887");
+  } finally {
+    hub.stop();
+  }
+});
+
+test("PATCH /sessions/:id/title rejects empty and unknown titles", async () => {
+  const hub = startHub(8822);
+  try {
+    const missing = await fetch("http://localhost:8822/sessions/nope/title", {
+      method: "PATCH",
+      body: JSON.stringify({ title: "Name" }),
+    });
+    expect(missing.status).toBe(404);
+
+    hub.registry.upsert({ ...base, id: "empty-title" });
+    const empty = await fetch("http://localhost:8822/sessions/empty-title/title", {
+      method: "PATCH",
+      body: JSON.stringify({ title: "   " }),
+    });
+    expect(empty.status).toBe(400);
+    expect(await empty.text()).toContain("title must be non-empty");
+  } finally {
+    hub.stop();
+  }
+});
+
 async function killSpawnedSession(res: Response): Promise<void> {
   if (!res.ok) return;
   const spawned = (await res.json().catch(() => ({}))) as { id?: string };

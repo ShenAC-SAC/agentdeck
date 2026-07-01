@@ -17,6 +17,14 @@ export class Registry {
     return [...this.map.values()];
   }
 
+  rename(id: string, title: string): Session | undefined {
+    const current = this.map.get(id);
+    if (!current) return undefined;
+    const updated = { ...current, title, lastActivityAt: Date.now() };
+    this.map.set(id, updated);
+    return updated;
+  }
+
   applyEvent(e: AdapterEvent): Session | undefined {
     const s = this.map.get(e.sessionId);
     if (!s) return undefined;

@@ -100,6 +100,19 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         }
       }
 
+      const renameMatch = req.method === "PATCH" ? url.pathname.match(/^\/sessions\/([^/]+)\/title$/) : null;
+      if (renameMatch) {
+        const id = decodeURIComponent(renameMatch[1]);
+        const body = (await req.json().catch(() => ({}))) as { title?: unknown };
+        const title = typeof body.title === "string" ? body.title.trim() : "";
+        if (!title) return new Response("title must be non-empty", { status: 400 });
+        if (title.length > 80) return new Response("title must be 80 characters or fewer", { status: 400 });
+        const updated = registry.rename(id, title);
+        if (!updated) return new Response("unknown session", { status: 404 });
+        events.emit("update", updated);
+        return Response.json(updated);
+      }
+
       if (req.method === "POST" && url.pathname === "/events") {
         const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
         const sessionId = url.searchParams.get("sessionId") ?? asString(body.sessionId);

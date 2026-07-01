@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { getAgents, getSessions, jump, spawn, subscribe, type AgentAvailability } from "./api";
+import {
+  getAgents,
+  getSessions,
+  jump,
+  renameSessionTitle,
+  spawn,
+  subscribe,
+  type AgentAvailability,
+} from "./api";
 import type { AgentKind, Session, SessionState } from "./types";
 import { CrewCard } from "./components/crew-card";
 import { TerminalView } from "./components/terminal-view";
@@ -124,6 +132,19 @@ export function App() {
     await openSpawn(agent, workspace.host, workspace.cwd);
   }
 
+  async function onRenameTerminal(sessionId: string, currentTitle: string) {
+    const title = window.prompt("Terminal name", currentTitle);
+    if (title === null) return;
+    const res = await renameSessionTitle(sessionId, title);
+    if (!res.ok || !res.session) {
+      setToast(res.error || "rename failed");
+      setTimeout(() => setToast(""), 4500);
+      return;
+    }
+    const updated = res.session;
+    setSessions((prev) => new Map(prev).set(updated.id, updated));
+  }
+
   const openSession = view.kind === "session" ? sessions.get(view.id) : undefined;
   const showTerminal = view.kind === "session" && hasPty();
 
@@ -139,12 +160,17 @@ export function App() {
         onAddWorkspace={onAddWorkspace}
         onAddRemoteWorkspace={onAddRemoteWorkspace}
         onNewTerminal={onNewTerminal}
+        onRenameTerminal={onRenameTerminal}
       />
 
       <section className="main">
         {showTerminal ? (
           openSession ? (
-            <TerminalView session={openSession} onBack={() => setView({ kind: "overview" })} />
+            <TerminalView
+              session={openSession}
+              onBack={() => setView({ kind: "overview" })}
+              onRename={onRenameTerminal}
+            />
           ) : (
             <div className="main__connecting">
               <p className="muted">connecting to session…</p>

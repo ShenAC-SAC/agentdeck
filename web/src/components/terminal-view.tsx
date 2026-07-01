@@ -10,7 +10,15 @@ import { installTerminalInputOverrides } from "../terminal-input";
 // Embedded terminal: an xterm bound to a node-pty that runs
 // `tmux -L deck attach -t <session>` in the main process. You see the agent's
 // live output and type straight into it — no separate window, no jump.
-export function TerminalView({ session, onBack }: { session: Session; onBack: () => void }) {
+export function TerminalView({
+  session,
+  onBack,
+  onRename,
+}: {
+  session: Session;
+  onBack: () => void;
+  onRename: (sessionId: string, currentTitle: string) => void;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -69,6 +77,9 @@ export function TerminalView({ session, onBack }: { session: Session; onBack: ()
           {mood.emoji}
         </span>
         <span className="term__title">{session.title}</span>
+        <button className="term__rename" type="button" onClick={() => onRename(session.id, session.title)}>
+          Rename
+        </button>
         <span className="crew-card__agent">{session.agent}</span>
         <span className="term__workspace" title={session.cwd}>
           @{workspace}

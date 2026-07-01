@@ -16,6 +16,7 @@ export function WorkspaceRail({
   onAddWorkspace,
   onAddRemoteWorkspace,
   onNewTerminal,
+  onRenameTerminal,
 }: {
   groups: WorkspaceGroup[];
   selected: MainView;
@@ -26,6 +27,7 @@ export function WorkspaceRail({
   onAddWorkspace: () => void;
   onAddRemoteWorkspace: () => void;
   onNewTerminal: (workspace: { host: string; cwd: string }) => void;
+  onRenameTerminal: (sessionId: string, currentTitle: string) => void;
 }) {
   const agents = availableAgents.filter((a) => a.available);
   return (
@@ -70,22 +72,35 @@ export function WorkspaceRail({
               {group.sessions.map((session) => {
                 const mood = moodFor(session.state);
                 return (
-                  <button
+                  <div
                     key={session.id}
-                    type="button"
                     className="workspace-session"
                     data-active={selected.kind === "session" && selected.id === session.id}
                     data-state={session.state}
                     style={{ "--accent": mood.accent } as CSSProperties}
-                    onClick={() => onSelect({ kind: "session", id: session.id })}
                     title={session.title}
                   >
-                    <span className="workspace-session__emoji" aria-hidden>
-                      {mood.emoji}
-                    </span>
-                    <span className="workspace-session__title">{session.title}</span>
-                    <span className="workspace-session__dot" aria-hidden />
-                  </button>
+                    <button
+                      className="workspace-session__open"
+                      type="button"
+                      onClick={() => onSelect({ kind: "session", id: session.id })}
+                    >
+                      <span className="workspace-session__emoji" aria-hidden>
+                        {mood.emoji}
+                      </span>
+                      <span className="workspace-session__title">{session.title}</span>
+                      <span className="workspace-session__dot" aria-hidden />
+                    </button>
+                    <button
+                      className="workspace-session__rename"
+                      type="button"
+                      title={`Rename ${session.title}`}
+                      aria-label={`Rename ${session.title}`}
+                      onClick={() => onRenameTerminal(session.id, session.title)}
+                    >
+                      ✎
+                    </button>
+                  </div>
                 );
               })}
             </div>

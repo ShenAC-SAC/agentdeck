@@ -253,10 +253,10 @@ body::before {
 .workspace-session {
   width: 100%;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 8px;
+  grid-template-columns: minmax(0, 1fr) 28px;
   align-items: center;
-  gap: 9px;
-  padding: 9px 10px;
+  gap: 6px;
+  padding: 5px 7px 5px 10px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -283,6 +283,21 @@ body::before {
   box-shadow: 0 0 18px -15px var(--tone-waiting);
 }
 
+.workspace-session__open {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 8px;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .workspace-session__emoji {
   line-height: 1;
 }
@@ -301,6 +316,41 @@ body::before {
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 8px var(--accent);
+}
+
+.workspace-session__rename,
+.term__rename {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-faint);
+  border-radius: 8px;
+  padding: 4px 7px;
+  cursor: pointer;
+  transition: opacity 0.16s ease, border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.workspace-session__rename {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  opacity: 0;
+}
+
+.workspace-session:hover .workspace-session__rename,
+.workspace-session[data-active="true"] .workspace-session__rename,
+.workspace-session__rename:focus-visible {
+  opacity: 1;
+}
+
+.workspace-session__rename:hover,
+.term__rename:hover {
+  color: var(--text);
+  border-color: var(--brass-soft);
+  background: rgba(226, 165, 76, 0.1);
 }
 
 .workspace-rail__new {

@@ -40,6 +40,18 @@ export async function spawn(req: SpawnRequest): Promise<string | undefined> {
   return id;
 }
 
+export async function renameSessionTitle(
+  sessionId: string,
+  title: string,
+): Promise<{ ok: boolean; session?: Session; error?: string }> {
+  const res = await fetch(`/sessions/${encodeURIComponent(sessionId)}/title`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) return { ok: false, error: await res.text() };
+  return { ok: true, session: (await res.json()) as Session };
+}
+
 export function jump(sessionId: string): Promise<Response> {
   return fetch(`/jump?sessionId=${encodeURIComponent(sessionId)}`, { method: "POST" });
 }
