@@ -40,7 +40,17 @@ export function App() {
     getSessions().then((list) => {
       if (alive) setSessions(new Map(list.map((s) => [s.id, s])));
     });
-    const unsub = subscribe((s) => setSessions((prev) => new Map(prev).set(s.id, s)));
+    const unsub = subscribe(
+      (s) => setSessions((prev) => new Map(prev).set(s.id, s)),
+      (id) => {
+        setSessions((prev) => {
+          const next = new Map(prev);
+          next.delete(id);
+          return next;
+        });
+        setView((v) => (v.kind === "session" && v.id === id ? { kind: "overview" } : v));
+      },
+    );
     return () => {
       alive = false;
       unsub();

@@ -20,10 +20,16 @@ export async function getAgents(): Promise<AgentAvailability[]> {
   return body.agents?.length ? body.agents : fallback;
 }
 
-export function subscribe(onSession: (s: Session) => void): () => void {
+export function subscribe(
+  onSession: (s: Session) => void,
+  onRemove: (id: string) => void = () => {},
+): () => void {
   const EventSourceCtor = globalThis.EventSource as unknown as new (url: string) => EventSource;
   const es = new EventSourceCtor("/events/stream");
   es.onmessage = (e) => onSession(JSON.parse(e.data) as Session);
+  es.addEventListener("remove", (e) =>
+    onRemove((JSON.parse((e as MessageEvent).data) as { id: string }).id),
+  );
   return () => es.close();
 }
 
@@ -51,6 +57,11 @@ export async function renameSessionTitle(
   });
   if (!res.ok) return { ok: false, error: await res.text() };
   return { ok: true, session: (await res.json()) as Session };
+}
+
+export async function closeSession(id: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return res.ok ? { ok: true } : { ok: false, error: await res.text() };
 }
 
 export function jump(sessionId: string): Promise<Response> {
