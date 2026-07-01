@@ -4,6 +4,7 @@
 // unchanged — the window just points at the hub's http server.
 const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog } = require("electron");
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
 const path = require("node:path");
 
 const PORT = Number(process.env.DECK_PORT || 8799);
@@ -11,6 +12,7 @@ const URL = `http://localhost:${PORT}/`;
 const ROOT = path.join(__dirname, "..");
 const SMOKE = process.env.DECK_SMOKE === "1";
 const SHOT = process.env.DECK_SHOT || ""; // path: screenshot the embedded terminal then quit
+const SHOT_AGENT = process.env.DECK_SHOT_AGENT || "generic";
 
 let hub = null;
 let win = null;
@@ -114,6 +116,114 @@ async function waitForHub(timeoutMs = 10000) {
   return false;
 }
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+function shotTargets() {
+  const overview =
+    process.env.DECK_SHOT_OVERVIEW || (SHOT && !SHOT.endsWith(".png") ? `${SHOT}-overview.png` : "");
+  const terminal =
+    process.env.DECK_SHOT_TERMINAL || (SHOT ? (SHOT.endsWith(".png") ? SHOT : `${SHOT}-terminal.png`) : "");
+  return { overview, terminal };
+}
+
+async function spawnDeckSession(agent, cwd) {
+  const r = await fetch(`${URL}spawn`, {
+    method: "POST",
+    body: JSON.stringify({ agent, cwd }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function markWaiting(id, message) {
+  const r = await fetch(`${URL}events?sessionId=${encodeURIComponent(id)}&agent=claude-code`, {
+    method: "POST",
+    body: JSON.stringify({ hook_event_name: "Notification", message }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+async function capturePng(out) {
+  if (!out) return;
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  const img = await win.webContents.capturePage();
+  fs.writeFileSync(out, img.toPNG());
+  console.log("SHOT saved:", out);
+}
+
+async function typeIntoTerminal(text) {
+  win.focus();
+  win.webContents.focus();
+  for (const ch of text) {
+    if (ch === "\n") {
+      win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
+      win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Enter" });
+    } else {
+      win.webContents.sendInputEvent({ type: "char", keyCode: ch });
+    }
+    await sleep(8);
+  }
+}
+
+function runTmux(args) {
+  return new Promise((resolve, reject) => {
+    const p = spawn("tmux", args, { stdio: "ignore" });
+    p.on("error", reject);
+    p.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`tmux exited ${code}`))));
+  });
+}
+
+async function killTmuxSession(id) {
+  try {
+    await runTmux(["-L", "deck", "kill-session", "-t", id]);
+    await sleep(500);
+    await win.webContents.capturePage();
+    console.log("SHOT kill-session ok:", id);
+  } catch (e) {
+    console.error("SHOT kill-session skipped:", id, e && e.message);
+  }
+}
+
+async function runShotVerification() {
+  const { overview, terminal } = shotTargets();
+  const primaryAgent = ["claude-code", "codex", "opencode", "generic"].includes(SHOT_AGENT) ? SHOT_AGENT : "generic";
+  let primary = null;
+  let waiting = null;
+  const waitingText = "Waiting for input in the web workspace";
+
+  try {
+    primary = await spawnDeckSession(primaryAgent, ROOT);
+    waiting = await spawnDeckSession("generic", path.join(ROOT, "web"));
+
+    if (overview) {
+      await markWaiting(waiting.id, waitingText);
+      await win.loadURL(URL);
+      await sleep(1000);
+      await capturePng(overview);
+    }
+
+    await win.loadURL(`${URL}?open=${encodeURIComponent(primary.id)}`);
+    await sleep(1600);
+    const input =
+      process.env.DECK_SHOT_INPUT ||
+      (primaryAgent === "generic" ? "echo AGENTDECK_EMBEDDED_INPUT_OK && pwd\n" : "/quit\n");
+    await typeIntoTerminal(input);
+    await sleep(primaryAgent === "generic" ? 1000 : 1800);
+
+    win.setSize(980, 620);
+    await sleep(350);
+    win.setSize(1200, 820);
+    await sleep(600);
+
+    await markWaiting(waiting.id, waitingText);
+    await sleep(250);
+    await capturePng(terminal);
+  } finally {
+    if (waiting) await killTmuxSession(waiting.id);
+    if (primary) await killTmuxSession(primary.id);
+  }
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1200,
@@ -136,6 +246,21 @@ function createWindow() {
       e.preventDefault();
       win.hide();
     }
+  });
+}
+
+function waitForWindowLoad(timeoutMs = 5000) {
+  if (!win || !win.webContents.isLoading()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, timeoutMs);
+    function done() {
+      clearTimeout(timer);
+      win.webContents.removeListener("did-finish-load", done);
+      win.webContents.removeListener("did-fail-load", done);
+      resolve();
+    }
+    win.webContents.once("did-finish-load", done);
+    win.webContents.once("did-fail-load", done);
   });
 }
 
@@ -201,18 +326,13 @@ app.whenReady().then(async () => {
   setupDialog();
   createTray();
   createWindow();
+  await waitForWindowLoad();
 
   if (SHOT) {
-    // Verification: spawn a session, open its embedded terminal, screenshot, quit.
+    // Verification: seed two workspace sessions, capture overview + embedded
+    // terminal, type through the renderer, resize, kill a tmux session, quit.
     try {
-      const r = await fetch(`${URL}spawn`, { method: "POST", body: JSON.stringify({ agent: "generic" }) });
-      const { id } = await r.json();
-      await new Promise((res) => setTimeout(res, 400));
-      await win.loadURL(`${URL}?open=${encodeURIComponent(id)}`);
-      await new Promise((res) => setTimeout(res, 2800));
-      const img = await win.webContents.capturePage();
-      require("node:fs").writeFileSync(SHOT, img.toPNG());
-      console.log("SHOT saved:", SHOT, "session:", id);
+      await runShotVerification();
     } catch (e) {
       console.error("SHOT failed:", e && e.message);
     }
