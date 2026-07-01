@@ -38,7 +38,7 @@ export function TerminalView({ session, onBack }: { session: Session; onBack: ()
     void bridge.open(id, session.tmuxTarget, session.host, term.cols, term.rows);
     const offData = bridge.onData(id, (d) => term.write(d));
     const offExit = bridge.onExit(id, () => term.write("\r\n\x1b[2m[session detached]\x1b[0m\r\n"));
-    installTerminalInputOverrides(term, (data) => bridge.write(id, data));
+    installTerminalInputOverrides(term, (data) => bridge.write(id, data), session.agent);
     const input = term.onData((d) => bridge.write(id, d));
     const onResize = () => {
       fit.fit();
@@ -55,7 +55,7 @@ export function TerminalView({ session, onBack }: { session: Session; onBack: ()
       bridge.close(id);
       term.dispose();
     };
-  }, [session.id, session.tmuxTarget, session.host]);
+  }, [session.id, session.tmuxTarget, session.host, session.agent]);
 
   const mood = moodFor(session.state);
   const workspace = workspaceName(session.cwd);

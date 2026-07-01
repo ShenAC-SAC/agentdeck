@@ -166,6 +166,7 @@ async function capturePng(out) {
 async function typeIntoTerminal(text) {
   win.focus();
   win.webContents.focus();
+  const keyDelayMs = Number(process.env.DECK_SHOT_KEY_DELAY_MS || 24);
   for (const ch of text) {
     if (ch === "\n") {
       win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
@@ -176,7 +177,7 @@ async function typeIntoTerminal(text) {
     } else {
       win.webContents.sendInputEvent({ type: "char", keyCode: ch });
     }
-    await sleep(8);
+    await sleep(keyDelayMs);
   }
 }
 

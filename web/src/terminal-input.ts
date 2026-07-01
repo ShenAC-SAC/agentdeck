@@ -1,4 +1,11 @@
+import type { AgentKind } from "./types";
+
 export const SHIFT_ENTER_SEQUENCE = "\x1b[13;2u";
+export const CODEX_SHIFT_ENTER_SEQUENCE = "\x1b[200~\n\x1b[201~";
+
+export function shiftEnterDataForAgent(agent: AgentKind): string {
+  return agent === "codex" ? CODEX_SHIFT_ENTER_SEQUENCE : SHIFT_ENTER_SEQUENCE;
+}
 
 export interface TerminalKeyEventLike {
   type: string;
@@ -34,10 +41,11 @@ export function shouldBlockShiftEnter(event: TerminalKeyEventLike): boolean {
 export function installTerminalInputOverrides(
   term: KeyOverrideTerminal,
   write: (data: string) => void,
+  agent: AgentKind = "generic",
 ): void {
   term.attachCustomKeyEventHandler((event) => {
     if (shouldSendShiftEnter(event)) {
-      write(SHIFT_ENTER_SEQUENCE);
+      write(shiftEnterDataForAgent(agent));
       return false;
     }
     if (shouldBlockShiftEnter(event)) return false;
