@@ -11,6 +11,7 @@ import { sseResponse } from "./sse";
 import { serveStatic } from "./static";
 import { tmux } from "../tmux/tmux";
 import type { HubOptions } from "./hub";
+import { detectLocalAgents } from "../agents/availability";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
@@ -25,6 +26,10 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
 
       if (req.method === "GET" && url.pathname === "/sessions") {
         return Response.json(registry.list());
+      }
+
+      if (req.method === "GET" && url.pathname === "/agents") {
+        return Response.json({ agents: await detectLocalAgents() });
       }
 
       if (req.method === "GET" && url.pathname === "/events/stream") {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getSessions, jump, spawn, subscribe } from "./api";
+import { getAgents, getSessions, jump, spawn, subscribe, type AgentAvailability } from "./api";
 import type { AgentKind, Session, SessionState } from "./types";
 import { CrewCard } from "./components/crew-card";
 import { TerminalView } from "./components/terminal-view";
@@ -16,6 +16,9 @@ export function App() {
   const [, setTick] = useState(0);
   const [view, setView] = useState<MainView>({ kind: "overview" });
   const [agent, setAgent] = useState<AgentKind>("claude-code");
+  const [availableAgents, setAvailableAgents] = useState<AgentAvailability[]>([
+    { agent: "generic", label: "Shell", available: true, command: "shell" },
+  ]);
   const [toast, setToast] = useState("");
 
   // Shot/deep-link mode: ?open=<id> jumps straight into a session's terminal.
@@ -35,6 +38,19 @@ export function App() {
       unsub();
     };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    getAgents().then((agents) => {
+      if (!alive) return;
+      setAvailableAgents(agents);
+      const first = agents.find((a) => a.available)?.agent;
+      if (first && !agents.some((a) => a.available && a.agent === agent)) setAgent(first);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [agent]);
 
   // Keep the "last activity" telemetry honest as time passes.
   useEffect(() => {
@@ -92,6 +108,7 @@ export function App() {
         groups={groups}
         selected={view}
         agent={agent}
+        availableAgents={availableAgents}
         onAgentChange={setAgent}
         onSelect={onSelect}
         onNewSession={onNewSession}

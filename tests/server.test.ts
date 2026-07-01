@@ -78,6 +78,18 @@ test("GET /sessions returns registered sessions", async () => {
   }
 });
 
+test("GET /agents returns agent availability", async () => {
+  const hub = startHub(8813);
+  try {
+    const res = await fetch("http://localhost:8813/agents");
+    expect(res.ok).toBe(true);
+    const body = (await res.json()) as { agents: Array<{ agent: string; available: boolean }> };
+    expect(body.agents.some((a) => a.agent === "generic" && a.available)).toBe(true);
+  } finally {
+    hub.stop();
+  }
+});
+
 async function killSpawnedSession(res: Response): Promise<void> {
   if (!res.ok) return;
   const spawned = (await res.json().catch(() => ({}))) as { id?: string };

@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
 import type { AgentKind } from "../types";
-import { AGENT_KINDS } from "../types";
 import { moodFor } from "../mood";
 import type { WorkspaceGroup } from "../workspace";
+import type { AgentAvailability } from "../api";
 
 export type MainView = { kind: "overview" } | { kind: "session"; id: string };
 
@@ -10,6 +10,7 @@ export function WorkspaceRail({
   groups,
   selected,
   agent,
+  availableAgents,
   onAgentChange,
   onSelect,
   onNewSession,
@@ -17,10 +18,12 @@ export function WorkspaceRail({
   groups: WorkspaceGroup[];
   selected: MainView;
   agent: AgentKind;
+  availableAgents: AgentAvailability[];
   onAgentChange: (agent: AgentKind) => void;
   onSelect: (view: MainView) => void;
   onNewSession: () => void;
 }) {
+  const agents = availableAgents.filter((a) => a.available);
   return (
     <nav className="workspace-rail">
       <div className="sidebar__brand">
@@ -81,9 +84,9 @@ export function WorkspaceRail({
           value={agent}
           onChange={(e) => onAgentChange(e.target.value as AgentKind)}
         >
-          {AGENT_KINDS.map((a) => (
-            <option key={a} value={a}>
-              {a}
+          {agents.map((a) => (
+            <option key={a.agent} value={a.agent}>
+              {a.label}
             </option>
           ))}
         </select>

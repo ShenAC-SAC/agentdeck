@@ -1,8 +1,23 @@
 import type { Session, AgentKind } from "./types";
 
+export interface AgentAvailability {
+  agent: AgentKind;
+  label: string;
+  available: boolean;
+  command: string;
+}
+
 export async function getSessions(): Promise<Session[]> {
   const res = await fetch("/sessions");
   return res.ok ? ((await res.json()) as Session[]) : [];
+}
+
+export async function getAgents(): Promise<AgentAvailability[]> {
+  const fallback: AgentAvailability[] = [{ agent: "generic", label: "Shell", available: true, command: "shell" }];
+  const res = await fetch("/agents");
+  if (!res.ok) return fallback;
+  const body = (await res.json()) as { agents?: AgentAvailability[] };
+  return body.agents?.length ? body.agents : fallback;
 }
 
 export function subscribe(onSession: (s: Session) => void): () => void {
