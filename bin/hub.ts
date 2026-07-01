@@ -4,10 +4,12 @@
 import { startHub } from "../src/hub/hub";
 import { wireNotifications } from "../src/notify/notify";
 import { startLivenessMonitor } from "../src/hub/liveness";
+import { rehydrate } from "../src/hub/rehydrate";
 
 const PORT = Number(process.env.DECK_PORT ?? 8799);
 const hub = startHub(PORT);
 wireNotifications(hub.events);
+await rehydrate(hub.registry).catch(() => {});
 const stopLiveness = startLivenessMonitor(hub.registry, hub.events);
 console.log(`deck hub listening on :${PORT}`);
 

@@ -3,6 +3,7 @@ import { render } from "ink";
 import { startHub } from "../src/hub/hub";
 import { wireNotifications } from "../src/notify/notify";
 import { startLivenessMonitor } from "../src/hub/liveness";
+import { rehydrate } from "../src/hub/rehydrate";
 import { DeckView } from "../src/tui/deck-view";
 import type { Session } from "../src/types";
 
@@ -41,6 +42,7 @@ if (cmd === "new") {
   if (!reachable) {
     const hub = startHub(PORT);
     wireNotifications(hub.events);
+    await rehydrate(hub.registry).catch(() => {});
     startLivenessMonitor(hub.registry, hub.events);
   }
   Bun.spawn(["open", `http://localhost:${PORT}/`]);
@@ -50,6 +52,7 @@ if (cmd === "new") {
   // No subcommand: this process is the deck hub + TUI. Keep it running.
   const hub = startHub(PORT);
   wireNotifications(hub.events);
+  await rehydrate(hub.registry).catch(() => {});
   startLivenessMonitor(hub.registry, hub.events);
   render(<DeckView registry={hub.registry} events={hub.events} />);
 }
