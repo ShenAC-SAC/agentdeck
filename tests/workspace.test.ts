@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { workspaceName, groupByWorkspace } from "../web/src/workspace";
-import { defaultTerminalTitle, hostLabel, workspaceKey } from "../src/workspace";
+import { defaultTerminalTitle, hostLabel, numberedTerminalTitle, workspaceKey } from "../src/workspace";
 import type { Session } from "../src/types";
 
 const s = (
@@ -37,6 +37,29 @@ test("defaultTerminalTitle is human-readable and avoids deck ids", () => {
     "Claude Code · agentdeck",
   );
   expect(defaultTerminalTitle("generic", "ssh:devbox", "/srv/api")).toBe("Shell · api");
+});
+
+test("numberedTerminalTitle keeps first title clean and numbers duplicates", () => {
+  const existing = [
+    s("a", "/Users/mac/learning/deer-flow", "idle", 1, "local"),
+    s("b", "/Users/mac/learning/deer-flow", "idle", 2, "local"),
+  ].map((session) => ({ ...session, agent: "claude-code" as const }));
+
+  expect(numberedTerminalTitle("claude-code", "local", "/Users/mac/learning/deer-flow", [])).toBe(
+    "Claude Code · deer-flow",
+  );
+  expect(numberedTerminalTitle("claude-code", "local", "/Users/mac/learning/deer-flow", existing)).toBe(
+    "Claude Code #3 · deer-flow",
+  );
+});
+
+test("numberedTerminalTitle counts only matching agent host and cwd", () => {
+  const existing = [
+    { ...s("a", "/repo", "idle", 1, "local"), agent: "codex" as const },
+    { ...s("b", "/repo", "idle", 2, "ssh:devbox"), agent: "claude-code" as const },
+  ];
+
+  expect(numberedTerminalTitle("claude-code", "local", "/repo", existing)).toBe("Claude Code · repo");
 });
 
 test("workspaceName is the basename", () => {

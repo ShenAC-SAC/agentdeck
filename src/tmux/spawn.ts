@@ -4,7 +4,7 @@ import { claudeSettings, codexNotifyScript } from "../adapters/install";
 import { startHeuristicPoller } from "../adapters/heuristic";
 import type { AgentKind } from "../types";
 import type { Registry } from "../hub/registry";
-import { defaultTerminalTitle } from "../workspace";
+import { numberedTerminalTitle } from "../workspace";
 import { remoteTmuxNewSession, sshTargetFromHost } from "../remote/ssh";
 
 const tmpDir = () => process.env.TMPDIR ?? "/tmp";
@@ -52,7 +52,7 @@ export async function spawnAgent(opts: {
   registry.upsert({
     id: name,
     agent,
-    title: opts.title ?? defaultTerminalTitle(agent, "local", cwd),
+    title: opts.title ?? numberedTerminalTitle(agent, "local", cwd, registry.list()),
     tmuxTarget: target,
     cwd,
     host: "local",
@@ -81,7 +81,7 @@ export async function spawnRemoteShell(opts: {
   opts.registry.upsert({
     id: opts.name,
     agent: "generic",
-    title: opts.title ?? defaultTerminalTitle("generic", opts.host, opts.cwd),
+    title: opts.title ?? numberedTerminalTitle("generic", opts.host, opts.cwd, opts.registry.list()),
     tmuxTarget: target,
     cwd: opts.cwd,
     host: opts.host,

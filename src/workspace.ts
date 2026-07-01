@@ -1,4 +1,4 @@
-import type { AgentKind } from "./types";
+import type { AgentKind, Session } from "./types";
 
 const AGENT_LABEL: Record<AgentKind, string> = {
   "claude-code": "Claude Code",
@@ -25,4 +25,17 @@ export function hostLabel(host: string): string {
 
 export function defaultTerminalTitle(agent: AgentKind, _host: string, cwd: string): string {
   return `${AGENT_LABEL[agent]} · ${workspaceName(cwd)}`;
+}
+
+export function numberedTerminalTitle(
+  agent: AgentKind,
+  host: string,
+  cwd: string,
+  existing: Session[],
+): string {
+  const count = existing.filter((session) => {
+    return session.agent === agent && session.host === host && session.cwd === cwd;
+  }).length;
+  if (count === 0) return defaultTerminalTitle(agent, host, cwd);
+  return `${AGENT_LABEL[agent]} #${count + 1} · ${workspaceName(cwd)}`;
 }

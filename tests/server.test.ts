@@ -189,6 +189,27 @@ test.skipIf(!hasTmux)("POST /spawn gives local terminals a human title", async (
   }
 });
 
+test.skipIf(!hasTmux)("POST /spawn numbers duplicate terminals in a workspace", async () => {
+  const hub = startHub(8820);
+  const spawnedIds: string[] = [];
+  try {
+    for (let i = 0; i < 2; i++) {
+      const res = await fetch("http://localhost:8820/spawn", {
+        method: "POST",
+        body: JSON.stringify({ agent: "generic", cwd: "/tmp" }),
+      });
+      expect(res.status).toBe(200);
+      const spawned = (await res.json()) as { id: string };
+      spawnedIds.push(spawned.id);
+    }
+    expect(hub.registry.get(spawnedIds[0])?.title).toBe("Shell · tmp");
+    expect(hub.registry.get(spawnedIds[1])?.title).toBe("Shell #2 · tmp");
+  } finally {
+    for (const id of spawnedIds) Bun.spawnSync(["tmux", "-L", "deck", "kill-session", "-t", id]);
+    hub.stop();
+  }
+});
+
 test.skipIf(!hasTmux)("POST /spawn reports spawn failures with a readable body", async () => {
   const path = "/tmp/agentdeck-tmpdir-file";
   await Bun.write(path, "not a directory");
