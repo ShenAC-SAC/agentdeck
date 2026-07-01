@@ -1,1 +1,441 @@
-/* replaced in Task 5 */
+/* AgentDeck — warm "ship's bridge at night" control deck.
+   Fraunces (characterful serif) carries the romance; JetBrains Mono is the
+   telemetry. Warm near-black canvas, brass accents, crew shown in portholes. */
+
+:root {
+  --ink: #14100c;
+  --ink-2: #191410;
+  --surface: #221a13;
+  --surface-hi: #2c2219;
+  --line: #3a2d21;
+  --line-soft: #2a211a;
+
+  --text: #f4ead9;
+  --text-dim: #bcac96;
+  --text-faint: #83725d;
+
+  --brass: #e2a54c;
+  --brass-soft: #b6853c;
+
+  --tone-working: #63c39b;
+  --tone-waiting: #f2b45c;
+  --tone-idle: #9b8c78;
+  --tone-error: #e76a4e;
+
+  --shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.85);
+  --radius: 18px;
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--ink);
+}
+
+body {
+  font-family: var(--font-mono);
+  color: var(--text);
+  /* Warm lantern glow, top-left, over the deep ink canvas. */
+  background:
+    radial-gradient(1100px 620px at 18% -8%, rgba(226, 165, 76, 0.14), transparent 60%),
+    radial-gradient(900px 700px at 100% 0%, rgba(99, 195, 155, 0.06), transparent 55%),
+    var(--ink);
+  background-attachment: fixed;
+}
+
+/* Fine grain overlay for tactile warmth. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.deck {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 28px 80px;
+}
+
+/* ---- Header / bridge bar ---------------------------------------------- */
+.deck__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 28px;
+  margin-bottom: 34px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand__mark {
+  font-size: 30px;
+  filter: drop-shadow(0 0 14px rgba(226, 165, 76, 0.5));
+}
+
+.brand__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.brand__sub {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  letter-spacing: 0.6px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.brand__sub .hot {
+  color: var(--tone-waiting);
+}
+
+.spawn {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.spawn__select,
+.spawn__btn {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.12s ease;
+}
+
+.spawn__select:hover,
+.spawn__btn:hover {
+  border-color: var(--brass-soft);
+  background: var(--surface-hi);
+}
+
+.spawn__btn {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: linear-gradient(180deg, #f0b95e, var(--brass));
+  border-color: transparent;
+  box-shadow: 0 10px 22px -12px rgba(226, 165, 76, 0.8);
+}
+
+.spawn__btn:hover {
+  transform: translateY(-1px);
+}
+
+.spawn__btn:active {
+  transform: translateY(0);
+}
+
+/* ---- Crew grid -------------------------------------------------------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 20px;
+}
+
+.crew-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 22px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, var(--surface-hi), var(--surface));
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: cardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transition: transform 0.16s ease, border-color 0.2s ease;
+}
+
+.crew-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.crew-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--line);
+}
+
+/* Attention states glow like a console light. */
+.crew-card[data-state="waiting"] {
+  border-color: color-mix(in srgb, var(--tone-waiting) 55%, transparent);
+  animation: cardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards, waitPulse 2.4s ease-in-out infinite 0.5s;
+}
+
+.crew-card[data-state="error"] {
+  border-color: color-mix(in srgb, var(--tone-error) 60%, transparent);
+}
+
+.crew-card__top {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Porthole — a round ship window framing the crew member. */
+.porthole {
+  position: relative;
+  flex: none;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 32%, #34281a, #17110c);
+  border: 2px solid color-mix(in srgb, var(--accent) 70%, #2a2019);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.6),
+    0 0 0 4px rgba(0, 0, 0, 0.25),
+    0 0 18px -4px var(--accent);
+}
+
+.porthole__face {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.porthole--big {
+  width: 86px;
+  height: 86px;
+  animation: bob 4s ease-in-out infinite;
+}
+
+.porthole--big .porthole__face {
+  font-size: 40px;
+}
+
+.crew-card__ident {
+  min-width: 0;
+}
+
+.crew-card__title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.2px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crew-card__agent {
+  display: inline-block;
+  margin-top: 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.crew-card__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+
+.crew-card__state .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.cursor {
+  color: var(--tone-working);
+  animation: blink 1.1s steps(1) infinite;
+  margin-left: 2px;
+}
+
+.crew-card__summary {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  min-height: 2.6em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.crew-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.telemetry {
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  color: var(--text-faint);
+}
+
+.jump {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.jump:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.muted {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* ---- Empty state ------------------------------------------------------ */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 90px 0;
+  text-align: center;
+}
+
+.empty .porthole--big {
+  margin-bottom: 14px;
+}
+
+.empty__lead {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 21px;
+  color: var(--text);
+}
+
+.empty .muted {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* ---- Toast ------------------------------------------------------------ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: min(90vw, 560px);
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--tone-error) 45%, var(--line));
+  background: #241713;
+  color: var(--text);
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+  box-shadow: var(--shadow);
+  animation: cardIn 0.3s ease forwards;
+}
+
+/* ---- Motion ----------------------------------------------------------- */
+@keyframes cardIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes waitPulse {
+  0%,
+  100% {
+    box-shadow: var(--shadow), 0 0 0 0 rgba(242, 180, 92, 0);
+  }
+  50% {
+    box-shadow: var(--shadow), 0 0 26px -2px rgba(242, 180, 92, 0.45);
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crew-card,
+  .crew-card[data-state="waiting"],
+  .porthole--big,
+  .cursor,
+  .toast {
+    animation: none;
+  }
+  .crew-card {
+    opacity: 1;
+    transform: none;
+  }
+}
