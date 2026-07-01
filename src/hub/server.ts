@@ -6,12 +6,13 @@ import type { AdapterEvent } from "../adapters/types";
 import { isAgentKind } from "../types";
 import { mapClaudeHook } from "../adapters/claude-code";
 import { mapCodexNotify } from "../adapters/codex";
-import { spawnAgent } from "../tmux/spawn";
+import { spawnAgent, spawnRemoteShell } from "../tmux/spawn";
 import { sseResponse } from "./sse";
 import { serveStatic } from "./static";
 import { tmux } from "../tmux/tmux";
 import type { HubOptions } from "./hub";
 import { detectLocalAgents } from "../agents/availability";
+import { sshTargetFromHost, validateRemoteWorkspace } from "../remote/ssh";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
@@ -37,11 +38,42 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
       }
 
       if (req.method === "POST" && url.pathname === "/spawn") {
-        const body = (await req.json().catch(() => ({}))) as { agent?: unknown; cwd?: unknown };
+        const body = (await req.json().catch(() => ({}))) as {
+          agent?: unknown;
+          cwd?: unknown;
+          host?: unknown;
+          mode?: unknown;
+        };
         if (!body.agent) return new Response("missing agent", { status: 400 });
         if (!isAgentKind(body.agent)) return new Response("unknown agent", { status: 400 });
+        const host = typeof body.host === "string" && body.host.trim() ? body.host.trim() : "local";
+        const mode = body.mode === "shell" ? "shell" : "agent";
+        if (host !== "local" && mode !== "shell") {
+          return new Response("remote agent mode is not implemented in M2-lite; choose remote shell", { status: 400 });
+        }
+        if (host !== "local" && body.agent !== "generic") {
+          return new Response("remote shell sessions must use generic agent", { status: 400 });
+        }
         const cwd = typeof body.cwd === "string" ? body.cwd.trim() : undefined;
         if (body.cwd != null && !cwd) return new Response("cwd must be a non-empty absolute directory", { status: 400 });
+
+        if (host !== "local") {
+          const target = sshTargetFromHost(host);
+          if (!target) return new Response("remote shell host must be ssh:<target>", { status: 400 });
+          if (!cwd) return new Response("remote cwd must be a non-empty absolute directory", { status: 400 });
+          const cwdError = await validateRemoteWorkspace(target, cwd);
+          if (cwdError) return new Response(cwdError, { status: 400 });
+          let spawned: Awaited<ReturnType<typeof spawnRemoteShell>>;
+          try {
+            spawned = await spawnRemoteShell({ host, name: `deck_${Date.now()}`, registry, cwd });
+          } catch (e) {
+            return new Response(`spawn failed: ${e instanceof Error ? e.message : String(e)}`, { status: 500 });
+          }
+          const session = registry.get(spawned.id);
+          if (session) events.emit("update", session);
+          return Response.json({ id: spawned.id, target: spawned.target });
+        }
+
         const cwdError = cwd ? await validateCwd(cwd) : undefined;
         if (cwdError) return new Response(cwdError, { status: 400 });
         let spawned: Awaited<ReturnType<typeof spawnAgent>>;

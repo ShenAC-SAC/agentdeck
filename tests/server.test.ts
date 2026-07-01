@@ -235,3 +235,31 @@ test("POST /spawn rejects unknown agent names", async () => {
     hub.stop();
   }
 });
+
+test("POST /spawn rejects remote agent mode in M2-lite", async () => {
+  const hub = startHub(8815);
+  try {
+    const res = await fetch("http://localhost:8815/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "codex", host: "ssh:devbox", mode: "agent", cwd: "/srv/app" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("remote agent mode is not implemented");
+  } finally {
+    hub.stop();
+  }
+});
+
+test("POST /spawn rejects non-generic remote shell", async () => {
+  const hub = startHub(8816);
+  try {
+    const res = await fetch("http://localhost:8816/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "codex", host: "ssh:devbox", mode: "shell", cwd: "/srv/app" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("remote shell sessions must use generic");
+  } finally {
+    hub.stop();
+  }
+});

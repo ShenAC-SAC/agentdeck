@@ -5,6 +5,7 @@ import { startHeuristicPoller } from "../adapters/heuristic";
 import type { AgentKind } from "../types";
 import type { Registry } from "../hub/registry";
 import { defaultTerminalTitle } from "../workspace";
+import { remoteTmuxNewSession, sshTargetFromHost } from "../remote/ssh";
 
 const tmpDir = () => process.env.TMPDIR ?? "/tmp";
 
@@ -65,4 +66,28 @@ export async function spawnAgent(opts: {
     agent === "opencode" || agent === "generic" ? startHeuristicPoller(target, name, hubPort) : () => {};
 
   return { id: name, target, stop };
+}
+
+export async function spawnRemoteShell(opts: {
+  host: string;
+  name: string;
+  registry: Registry;
+  cwd: string;
+  title?: string;
+}): Promise<SpawnResult> {
+  const targetHost = sshTargetFromHost(opts.host);
+  if (!targetHost) throw new Error("remote shell host must be ssh:<target>");
+  const target = await remoteTmuxNewSession(targetHost, opts.name, opts.cwd);
+  opts.registry.upsert({
+    id: opts.name,
+    agent: "generic",
+    title: opts.title ?? defaultTerminalTitle("generic", opts.host, opts.cwd),
+    tmuxTarget: target,
+    cwd: opts.cwd,
+    host: opts.host,
+    state: "idle",
+    lastActivityAt: Date.now(),
+    lastSummaryLine: "",
+  });
+  return { id: opts.name, target, stop: () => {} };
 }
