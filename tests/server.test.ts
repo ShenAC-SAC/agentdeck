@@ -7,6 +7,7 @@ const base: Session = {
   agent: "claude-code",
   title: "t",
   tmuxTarget: "deck:0.0",
+  cwd: "/tmp",
   host: "local",
   state: "working",
   lastActivityAt: 0,

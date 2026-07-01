@@ -13,6 +13,7 @@ export interface Session {
   agent: AgentKind;
   title: string;
   tmuxTarget: string; // "session:window.pane"
+  cwd: string; // workspace directory the agent runs in
   host: Host;
   state: SessionState;
   lastActivityAt: number; // epoch millis

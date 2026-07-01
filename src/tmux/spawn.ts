@@ -22,8 +22,10 @@ export async function spawnAgent(opts: {
   registry: Registry;
   hubPort: number;
   title?: string;
+  cwd?: string;
 }): Promise<SpawnResult> {
   const { agent, name, registry, hubPort } = opts;
+  const cwd = opts.cwd ?? process.env.HOME ?? process.cwd();
   const base = `${tmpDir()}/deck-${name}`;
   await Bun.write(`${base}.tmux.conf`, vettedConfig());
 
@@ -47,6 +49,7 @@ export async function spawnAgent(opts: {
     agent,
     title: opts.title ?? name,
     tmuxTarget: target,
+    cwd,
     host: "local",
     state: "idle",
     lastActivityAt: Date.now(),
