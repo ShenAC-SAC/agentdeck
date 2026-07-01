@@ -96,3 +96,15 @@ about anything you are unsure of (Principle 9).
 - Lead with the point; no play-by-play.
 - Scale each section to the change — a trivial PR can be terse — but Approach and Testing always earn their space.
 - Drop a section only when it genuinely has nothing to say; never leave `N/A` placeholders.
+
+### Naming
+
+- Files: `kebab-case` (`state-machine.ts`, `deck-view.tsx`).
+- Types and React components: `PascalCase`.
+- Functions and variables: `camelCase`.
+- Module-level constants: `UPPER_SNAKE_CASE`.
+
+### Tooling
+
+- Format and lint with **Biome** (one dependency for both; configuration lands with the project scaffold).
+- Do not hand-reformat code — let Biome own style so diffs stay signal-only (Principle 4).
