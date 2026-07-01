@@ -488,6 +488,64 @@ body::before {
   animation: cardIn 0.3s ease forwards;
 }
 
+/* ---- Embedded terminal ------------------------------------------------ */
+.term {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.term__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--sidebar);
+}
+
+.term__back {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.term__back:hover {
+  border-color: var(--brass);
+  color: var(--brass);
+}
+
+.term__face {
+  font-size: 18px;
+}
+
+.term__title {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.term__screen {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 4px 8px 12px;
+  background: #14100c;
+}
+
+.app--connecting {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+}
+
 /* ---- Motion ----------------------------------------------------------- */
 @keyframes cardIn {
   to {

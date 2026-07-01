@@ -4,6 +4,8 @@ import { AGENT_KINDS } from "./types";
 import type { AgentKind, Session, SessionState } from "./types";
 import { CrewCard } from "./components/crew-card";
 import { Sidebar, type NavItem } from "./components/sidebar";
+import { TerminalView } from "./components/terminal-view";
+import { hasPty } from "./pty";
 
 // Attention first: waiting/error rise to the top, resting sinks to the bottom.
 const ORDER: Record<SessionState, number> = { waiting: 0, error: 1, working: 2, idle: 3 };
@@ -29,6 +31,13 @@ export function App() {
   const [filter, setFilter] = useState<Filter>("all");
   const [agent, setAgent] = useState<AgentKind>("claude-code");
   const [toast, setToast] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  // Shot/deep-link mode: ?open=<id> jumps straight into a session's terminal.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("open");
+    if (id) setOpenId(id);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -74,12 +83,34 @@ export function App() {
   const shownWaiting = shown.filter((s) => s.state === "waiting").length;
   const activeLabel = CATEGORIES.find((c) => c.key === filter)?.label ?? "All";
 
-  async function onJump(id: string) {
+  // Under Electron, selecting a session opens its embedded terminal; in a plain
+  // browser there is no pty, so fall back to the tmux jump.
+  async function onSelect(id: string) {
+    if (hasPty()) {
+      setOpenId(id);
+      return;
+    }
     const res = await jump(id);
     if (!res.ok) {
       setToast((await res.text()) || "jump failed");
       setTimeout(() => setToast(""), 4500);
     }
+  }
+
+  async function onNewSession() {
+    const id = await spawn(agent);
+    if (id && hasPty()) setOpenId(id); // straight into the new session's terminal
+  }
+
+  const openSession = openId ? sessions.get(openId) : undefined;
+  if (openId && hasPty()) {
+    return openSession ? (
+      <TerminalView session={openSession} onBack={() => setOpenId(null)} />
+    ) : (
+      <div className="app app--connecting">
+        <p className="muted">connecting to session…</p>
+      </div>
+    );
   }
 
   return (
@@ -113,7 +144,7 @@ export function App() {
                 </option>
               ))}
             </select>
-            <button className="spawn__btn" type="button" onClick={() => spawn(agent)}>
+            <button className="spawn__btn" type="button" onClick={onNewSession}>
               ＋ New session
             </button>
           </div>
@@ -130,7 +161,7 @@ export function App() {
         ) : (
           <main className="grid">
             {shown.map((s, i) => (
-              <CrewCard key={s.id} session={s} index={i} onJump={onJump} />
+              <CrewCard key={s.id} session={s} index={i} onJump={onSelect} />
             ))}
           </main>
         )}

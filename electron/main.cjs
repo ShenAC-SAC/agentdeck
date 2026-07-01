@@ -2,7 +2,7 @@
 // loads the same web dashboard in a native window, and keeps a menu-bar tray
 // whose badge shows how many sessions are waiting on you. The React frontend is
 // unchanged — the window just points at the hub's http server.
-const { app, BrowserWindow, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain } = require("electron");
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 
@@ -10,12 +10,77 @@ const PORT = Number(process.env.DECK_PORT || 8799);
 const URL = `http://localhost:${PORT}/`;
 const ROOT = path.join(__dirname, "..");
 const SMOKE = process.env.DECK_SMOKE === "1";
+const SHOT = process.env.DECK_SHOT || ""; // path: screenshot the embedded terminal then quit
 
 let hub = null;
 let win = null;
 let tray = null;
 let pollTimer = null;
 app.isQuitting = false;
+
+// node-pty (native, rebuilt for Electron) powers the embedded terminals.
+let ptyMod = null;
+try {
+  ptyMod = require("node-pty");
+} catch (e) {
+  console.error("node-pty unavailable:", e && e.message);
+}
+const ptys = new Map();
+
+// Each renderer terminal maps to a pty running `tmux -L deck attach` for one
+// session — tmux stays the substrate; the GUI is just another client.
+function setupPty() {
+  ipcMain.handle("pty:open", (_e, { id, target, cols, rows }) => {
+    if (!ptyMod) return { ok: false, error: "node-pty unavailable" };
+    const existing = ptys.get(id);
+    if (existing) {
+      try {
+        existing.kill();
+      } catch {}
+      ptys.delete(id);
+    }
+    const session = String(target || id).split(":")[0];
+    const shell = process.env.SHELL || "/bin/bash";
+    const cmd = `tmux -L deck set -g status off 2>/dev/null; exec tmux -L deck attach -t '${session}'`;
+    const p = ptyMod.spawn(shell, ["-lc", cmd], {
+      name: "xterm-256color",
+      cols: cols || 80,
+      rows: rows || 24,
+      cwd: ROOT,
+      env: process.env,
+    });
+    p.onData((data) => {
+      if (win && !win.isDestroyed()) win.webContents.send("pty:data", { id, data });
+    });
+    p.onExit(() => {
+      ptys.delete(id);
+      if (win && !win.isDestroyed()) win.webContents.send("pty:exit", { id });
+    });
+    ptys.set(id, p);
+    return { ok: true };
+  });
+  ipcMain.on("pty:write", (_e, { id, data }) => {
+    const p = ptys.get(id);
+    if (p) p.write(data);
+  });
+  ipcMain.on("pty:resize", (_e, { id, cols, rows }) => {
+    const p = ptys.get(id);
+    if (p) {
+      try {
+        p.resize(cols, rows);
+      } catch {}
+    }
+  });
+  ipcMain.on("pty:close", (_e, { id }) => {
+    const p = ptys.get(id);
+    if (p) {
+      try {
+        p.kill();
+      } catch {}
+      ptys.delete(id);
+    }
+  });
+}
 
 function startHub() {
   hub = spawn("bun", [path.join("bin", "hub.ts")], {
@@ -49,7 +114,11 @@ function createWindow() {
     title: "AgentDeck",
     backgroundColor: "#14100c",
     titleBarStyle: "hiddenInset",
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
   });
   win.loadURL(URL);
   win.on("close", (e) => {
@@ -100,6 +169,11 @@ async function refreshBadge() {
 function quit() {
   app.isQuitting = true;
   if (pollTimer) clearInterval(pollTimer);
+  for (const p of ptys.values()) {
+    try {
+      p.kill();
+    } catch {}
+  }
   if (hub) hub.kill();
   app.quit();
 }
@@ -114,8 +188,27 @@ app.whenReady().then(async () => {
     return quit();
   }
 
+  setupPty();
   createTray();
   createWindow();
+
+  if (SHOT) {
+    // Verification: spawn a session, open its embedded terminal, screenshot, quit.
+    try {
+      const r = await fetch(`${URL}spawn`, { method: "POST", body: JSON.stringify({ agent: "generic" }) });
+      const { id } = await r.json();
+      await new Promise((res) => setTimeout(res, 400));
+      await win.loadURL(`${URL}?open=${encodeURIComponent(id)}`);
+      await new Promise((res) => setTimeout(res, 2800));
+      const img = await win.webContents.capturePage();
+      require("node:fs").writeFileSync(SHOT, img.toPNG());
+      console.log("SHOT saved:", SHOT, "session:", id);
+    } catch (e) {
+      console.error("SHOT failed:", e && e.message);
+    }
+    return quit();
+  }
+
   await refreshBadge();
   pollTimer = setInterval(refreshBadge, 3000);
 
