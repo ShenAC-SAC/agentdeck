@@ -6,6 +6,7 @@ import { mapClaudeHook } from "../adapters/claude-code";
 import { mapCodexNotify } from "../adapters/codex";
 import { spawnAgent } from "../tmux/spawn";
 import { sseResponse } from "./sse";
+import { tmux } from "../tmux/tmux";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
@@ -30,6 +31,19 @@ export function serve(port: number, registry: Registry, events: EventEmitter) {
         if (!isAgentKind(body.agent)) return new Response("unknown agent", { status: 400 });
         const spawned = await spawnAgent({ agent: body.agent, name: `deck_${Date.now()}`, registry, hubPort: port });
         return Response.json({ id: spawned.id, target: spawned.target });
+      }
+
+      if (req.method === "POST" && url.pathname === "/jump") {
+        const body = (await req.json().catch(() => ({}))) as { sessionId?: unknown };
+        const sessionId = url.searchParams.get("sessionId") ?? asString(body.sessionId);
+        const session = sessionId ? registry.get(sessionId) : undefined;
+        if (!session) return new Response("unknown session", { status: 404 });
+        try {
+          await tmux.switchClient(session.tmuxTarget);
+          return new Response("ok");
+        } catch (e) {
+          return new Response(e instanceof Error ? e.message : "jump failed", { status: 409 });
+        }
       }
 
       if (req.method === "POST" && url.pathname === "/events") {

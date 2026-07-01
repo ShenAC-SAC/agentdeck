@@ -85,6 +85,16 @@ test("POST /spawn without agent -> 400", async () => {
   }
 });
 
+test("POST /jump for unknown session -> 404", async () => {
+  const hub = startHub(8805);
+  try {
+    const res = await fetch("http://localhost:8805/jump?sessionId=nope", { method: "POST" });
+    expect(res.status).toBe(404);
+  } finally {
+    hub.stop();
+  }
+});
+
 test("POST /spawn rejects unknown agent names", async () => {
   const hub = startHub(8804);
   try {
