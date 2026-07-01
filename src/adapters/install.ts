@@ -6,12 +6,13 @@ export function hubEventsUrl(port: number, sessionId: string, agent: AgentKind):
   return `http://localhost:${port}/events?sessionId=${encodeURIComponent(sessionId)}&agent=${agent}`;
 }
 
-// Claude Code settings whose Stop/Notification hooks pipe the native hook JSON
-// (stdin) to the hub. Launched via `claude --settings <file>`.
+// Claude Code settings whose hooks pipe the native hook JSON (stdin) to the hub.
+// UserPromptSubmit -> working, Notification -> waiting, Stop -> idle. Launched
+// via `claude --settings <file>`.
 export function claudeSettings(port: number, sessionId: string): { hooks: Record<string, unknown> } {
   const command = `curl -s -X POST "${hubEventsUrl(port, sessionId, "claude-code")}" --data-binary @-`;
   const entry = [{ hooks: [{ type: "command", command }] }];
-  return { hooks: { Stop: entry, Notification: entry } };
+  return { hooks: { UserPromptSubmit: entry, Stop: entry, Notification: entry } };
 }
 
 // Codex notify script that posts the notify JSON ($1) to the hub. Referenced via

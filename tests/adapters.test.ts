@@ -14,6 +14,12 @@ test("CC Notification -> needs-input, summary from message", () => {
   expect(e.type === "needs-input" && e.summary).toBe("needs approval");
 });
 
+test("CC UserPromptSubmit -> turn-start (working), summary from prompt", () => {
+  const e = mapClaudeHook("s", { hook_event_name: "UserPromptSubmit", prompt: "refactor auth" });
+  expect(e.type).toBe("turn-start");
+  expect(e.type === "turn-start" && e.summary).toBe("refactor auth");
+});
+
 test("Codex agent-turn-complete -> turn-end, summary from last-assistant-message", () => {
   const e = mapCodexNotify("s", { type: "agent-turn-complete", "last-assistant-message": "ok" });
   expect(e.type).toBe("turn-end");
