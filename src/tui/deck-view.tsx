@@ -8,6 +8,7 @@ import { CrewMember } from "./crew-member";
 export function DeckView({ registry, events }: { registry: Registry; events: EventEmitter }) {
   const [, force] = useState(0);
   const [sel, setSel] = useState(0);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const onUpdate = () => force((x) => x + 1);
@@ -22,7 +23,12 @@ export function DeckView({ registry, events }: { registry: Registry; events: Eve
   useInput((_input, key) => {
     if (key.downArrow) setSel((s) => Math.min(s + 1, list.length - 1));
     if (key.upArrow) setSel((s) => Math.max(s - 1, 0));
-    if (key.return && list[sel]) tmux.switchClient(list[sel].tmuxTarget); // jump to the right pane
+    if (key.return && list[sel]) {
+      setMessage("");
+      void tmux.switchClient(list[sel].tmuxTarget).catch((err) => {
+        setMessage(err instanceof Error ? err.message : String(err));
+      });
+    }
   });
 
   return (
@@ -31,6 +37,7 @@ export function DeckView({ registry, events }: { registry: Registry; events: Eve
       {list.map((s, i) => (
         <CrewMember key={s.id} session={s} selected={i === sel} />
       ))}
+      {message ? <Text color="red">{message}</Text> : null}
     </Box>
   );
 }

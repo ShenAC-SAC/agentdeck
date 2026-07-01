@@ -7,8 +7,31 @@ const SOCKET = "deck";
 async function run(args: string[]): Promise<string> {
   const proc = Bun.spawn(["tmux", "-L", SOCKET, ...args], { stdout: "pipe", stderr: "pipe" });
   const out = await new Response(proc.stdout).text();
-  await proc.exited;
+  const err = await new Response(proc.stderr).text();
+  const code = await proc.exited;
+  if (code !== 0) {
+    throw new Error(err.trim() || `tmux ${args.join(" ")} exited ${code}`);
+  }
   return out;
+}
+
+interface ClientInfo {
+  name: string;
+  activity: number;
+}
+
+function parseListClients(raw: string): ClientInfo[] {
+  return raw
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((line) => {
+      const [name = "", activity = "0"] = line.split("|");
+      return { name, activity: Number(activity) || 0 };
+    });
+}
+
+function mostRecentClient(clients: ClientInfo[]): ClientInfo | undefined {
+  return [...clients].sort((a, b) => b.activity - a.activity)[0];
 }
 
 export const tmux = {
@@ -20,8 +43,15 @@ export const tmux = {
   capturePane(target: string): Promise<string> {
     return run(["capture-pane", "-p", "-t", target]);
   },
-  switchClient(target: string): Promise<string> {
-    return run(["switch-client", "-t", target]);
+  async listClients(): Promise<ClientInfo[]> {
+    return parseListClients(await run(["list-clients", "-F", "#{client_name}|#{client_activity}"]));
+  },
+  async switchClient(target: string, opts: { client?: string } = {}): Promise<string> {
+    const client = opts.client ?? mostRecentClient(await this.listClients())?.name;
+    if (!client) {
+      throw new Error("no attached deck tmux client; run 'tmux -L deck attach' in another terminal first");
+    }
+    return run(["switch-client", "-c", client, "-t", target]);
   },
   // `-f` loads the config as the server starts; on an already-running server it
   // is ignored. Passing it on every new-session is therefore safe and boots the

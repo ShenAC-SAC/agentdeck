@@ -21,3 +21,13 @@ test.skipIf(!hasTmux)("newSession then listPanes sees it on the deck socket", as
     await tmux.run(["kill-session", "-t", name]).catch(() => {});
   }
 });
+
+test.skipIf(!hasTmux)("switchClient requires an attached deck tmux client", async () => {
+  const name = "deck_jump_no_client";
+  try {
+    await tmux.newSession(name, "sleep 5");
+    expect(tmux.switchClient(`${name}:0.0`)).rejects.toThrow("no attached deck tmux client");
+  } finally {
+    await tmux.run(["kill-session", "-t", name]).catch(() => {});
+  }
+});
