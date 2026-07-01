@@ -2,7 +2,7 @@
 // loads the same web dashboard in a native window, and keeps a menu-bar tray
 // whose badge shows how many sessions are waiting on you. The React frontend is
 // unchanged — the window just points at the hub's http server.
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain } = require("electron");
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog } = require("electron");
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 
@@ -79,6 +79,15 @@ function setupPty() {
       } catch {}
       ptys.delete(id);
     }
+  });
+}
+
+function setupDialog() {
+  ipcMain.handle("dialog:pickFolder", async () => {
+    const r = await dialog.showOpenDialog(win || undefined, {
+      properties: ["openDirectory", "createDirectory"],
+    });
+    return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
   });
 }
 
@@ -189,6 +198,7 @@ app.whenReady().then(async () => {
   }
 
   setupPty();
+  setupDialog();
   createTray();
   createWindow();
 

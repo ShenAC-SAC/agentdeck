@@ -23,3 +23,7 @@ contextBridge.exposeInMainWorld("deckpty", {
     return () => ipcRenderer.removeListener("pty:exit", listener);
   },
 });
+
+contextBridge.exposeInMainWorld("deckdialog", {
+  pickFolder: () => ipcRenderer.invoke("dialog:pickFolder"),
+});
