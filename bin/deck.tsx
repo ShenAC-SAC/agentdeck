@@ -2,6 +2,7 @@
 import { render } from "ink";
 import { startHub } from "../src/hub/hub";
 import { wireNotifications } from "../src/notify/notify";
+import { startLivenessMonitor } from "../src/hub/liveness";
 import { DeckView } from "../src/tui/deck-view";
 import type { Session } from "../src/types";
 
@@ -40,6 +41,7 @@ if (cmd === "new") {
   if (!reachable) {
     const hub = startHub(PORT);
     wireNotifications(hub.events);
+    startLivenessMonitor(hub.registry, hub.events);
   }
   Bun.spawn(["open", `http://localhost:${PORT}/`]);
   console.log(`AgentDeck GUI at http://localhost:${PORT}/  (Ctrl-C to stop)`);
@@ -48,5 +50,6 @@ if (cmd === "new") {
   // No subcommand: this process is the deck hub + TUI. Keep it running.
   const hub = startHub(PORT);
   wireNotifications(hub.events);
+  startLivenessMonitor(hub.registry, hub.events);
   render(<DeckView registry={hub.registry} events={hub.events} />);
 }

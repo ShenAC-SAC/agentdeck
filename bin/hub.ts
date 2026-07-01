@@ -3,13 +3,16 @@
 // No TUI — just the HTTP hub (+ OS notifications) serving the web dashboard.
 import { startHub } from "../src/hub/hub";
 import { wireNotifications } from "../src/notify/notify";
+import { startLivenessMonitor } from "../src/hub/liveness";
 
 const PORT = Number(process.env.DECK_PORT ?? 8799);
 const hub = startHub(PORT);
 wireNotifications(hub.events);
+const stopLiveness = startLivenessMonitor(hub.registry, hub.events);
 console.log(`deck hub listening on :${PORT}`);
 
 const shutdown = () => {
+  stopLiveness();
   hub.stop();
   process.exit(0);
 };
