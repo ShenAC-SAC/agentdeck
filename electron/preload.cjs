@@ -4,7 +4,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("deckpty", {
-  open: (id, target, cols, rows) => ipcRenderer.invoke("pty:open", { id, target, cols, rows }),
+  open: (id, target, host, cols, rows) => ipcRenderer.invoke("pty:open", { id, target, host, cols, rows }),
   write: (id, data) => ipcRenderer.send("pty:write", { id, data }),
   resize: (id, cols, rows) => ipcRenderer.send("pty:resize", { id, cols, rows }),
   close: (id) => ipcRenderer.send("pty:close", { id }),

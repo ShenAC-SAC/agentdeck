@@ -202,6 +202,20 @@ body::before {
   padding: 0 10px 3px;
 }
 
+.workspace-group__label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.workspace-group__host {
+  font-size: 9.5px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
 .workspace-group__add {
   width: 24px;
   height: 24px;
@@ -295,6 +309,24 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.workspace-rail__remote {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.workspace-rail__remote:hover {
+  border-color: var(--brass-soft);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 /* ---- Main pane -------------------------------------------------------- */

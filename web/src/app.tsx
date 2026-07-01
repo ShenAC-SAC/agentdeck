@@ -87,8 +87,8 @@ export function App() {
     }
   }
 
-  async function openSpawn(agentToSpawn: AgentKind, host: string, cwd: string) {
-    const id = await spawn({ agent: agentToSpawn, host, cwd });
+  async function openSpawn(agentToSpawn: AgentKind, host: string, cwd: string, mode: "agent" | "shell" = "agent") {
+    const id = await spawn({ agent: agentToSpawn, host, cwd, mode });
     if (!id) {
       setToast("spawn failed");
       setTimeout(() => setToast(""), 4500);
@@ -103,10 +103,22 @@ export function App() {
     await openSpawn(agent, "local", dir);
   }
 
-  async function onNewTerminal(workspace: { host: string; cwd: string }) {
-    if (workspace.host !== "local") {
-      setToast("remote shell arrives in the next task");
+  async function onAddRemoteWorkspace() {
+    const sshTarget = window.prompt("SSH target (from ~/.ssh/config or user@host)", "");
+    if (!sshTarget?.trim()) return;
+    const cwd = window.prompt("Remote workspace absolute path", "/home");
+    if (!cwd?.trim()) return;
+    if (!cwd.startsWith("/")) {
+      setToast("remote workspace must be an absolute path");
       setTimeout(() => setToast(""), 4500);
+      return;
+    }
+    await openSpawn("generic", `ssh:${sshTarget.trim()}`, cwd.trim(), "shell");
+  }
+
+  async function onNewTerminal(workspace: { host: string; cwd: string }) {
+    if (workspace.host.startsWith("ssh:")) {
+      await openSpawn("generic", workspace.host, workspace.cwd, "shell");
       return;
     }
     await openSpawn(agent, workspace.host, workspace.cwd);
@@ -125,6 +137,7 @@ export function App() {
         onAgentChange={setAgent}
         onSelect={onSelect}
         onAddWorkspace={onAddWorkspace}
+        onAddRemoteWorkspace={onAddRemoteWorkspace}
         onNewTerminal={onNewTerminal}
       />
 

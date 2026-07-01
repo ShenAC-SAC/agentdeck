@@ -14,6 +14,7 @@ export function WorkspaceRail({
   onAgentChange,
   onSelect,
   onAddWorkspace,
+  onAddRemoteWorkspace,
   onNewTerminal,
 }: {
   groups: WorkspaceGroup[];
@@ -23,6 +24,7 @@ export function WorkspaceRail({
   onAgentChange: (agent: AgentKind) => void;
   onSelect: (view: MainView) => void;
   onAddWorkspace: () => void;
+  onAddRemoteWorkspace: () => void;
   onNewTerminal: (workspace: { host: string; cwd: string }) => void;
 }) {
   const agents = availableAgents.filter((a) => a.available);
@@ -47,7 +49,10 @@ export function WorkspaceRail({
         {groups.map((group) => (
           <section key={group.key} className="workspace-group">
             <div className="workspace-group__head" title={group.cwd}>
-              <span className="workspace-group__name">{group.name}</span>
+              <span className="workspace-group__label">
+                <span className="workspace-group__host">{group.hostName}</span>
+                <span className="workspace-group__name">{group.name}</span>
+              </span>
               <span className="nav-item__meta">
                 {group.waiting > 0 ? <span className="nav-item__badge">{group.waiting}</span> : null}
                 <span className="nav-item__count">{group.sessions.length}</span>
@@ -102,6 +107,9 @@ export function WorkspaceRail({
         </select>
         <button className="spawn__btn" type="button" onClick={onAddWorkspace}>
           ＋ Add workspace
+        </button>
+        <button className="workspace-rail__remote" type="button" onClick={onAddRemoteWorkspace}>
+          + Remote shell
         </button>
       </div>
     </nav>

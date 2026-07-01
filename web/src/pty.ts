@@ -1,7 +1,7 @@
 // Typed view of the bridge exposed by electron/preload.cjs. Absent in a plain
 // browser, so callers feature-detect via hasPty() and fall back to jump.
 export interface DeckPty {
-  open(id: string, target: string, cols: number, rows: number): Promise<{ ok: boolean; error?: string }>;
+  open(id: string, target: string, host: string, cols: number, rows: number): Promise<{ ok: boolean; error?: string }>;
   write(id: string, data: string): void;
   resize(id: string, cols: number, rows: number): void;
   close(id: string): void;

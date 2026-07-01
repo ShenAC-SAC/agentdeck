@@ -29,10 +29,23 @@ try {
 }
 const ptys = new Map();
 
+function shQuote(value) {
+  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
+}
+
+function ptyAttachCommand(host, target) {
+  const session = String(target || "").split(":")[0];
+  if (host && host.startsWith("ssh:")) {
+    const sshTarget = host.slice("ssh:".length);
+    return `exec ssh -tt ${shQuote(sshTarget)} tmux -L deck attach -t ${shQuote(session)}`;
+  }
+  return `tmux -L deck set -g status off 2>/dev/null; exec tmux -L deck attach -t ${shQuote(session)}`;
+}
+
 // Each renderer terminal maps to a pty running `tmux -L deck attach` for one
 // session — tmux stays the substrate; the GUI is just another client.
 function setupPty() {
-  ipcMain.handle("pty:open", (_e, { id, target, cols, rows }) => {
+  ipcMain.handle("pty:open", (_e, { id, target, host, cols, rows }) => {
     if (!ptyMod) return { ok: false, error: "node-pty unavailable" };
     const existing = ptys.get(id);
     if (existing) {
@@ -41,9 +54,8 @@ function setupPty() {
       } catch {}
       ptys.delete(id);
     }
-    const session = String(target || id).split(":")[0];
     const shell = process.env.SHELL || "/bin/bash";
-    const cmd = `tmux -L deck set -g status off 2>/dev/null; exec tmux -L deck attach -t '${session}'`;
+    const cmd = ptyAttachCommand(host, target || id);
     const p = ptyMod.spawn(shell, ["-lc", cmd], {
       name: "xterm-256color",
       cols: cols || 80,
