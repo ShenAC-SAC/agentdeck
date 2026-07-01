@@ -6,12 +6,15 @@
   "bin": {
     "deck": "bin/deck.tsx"
   },
+  "main": "electron/main.cjs",
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
     "deck": "bun bin/deck.tsx",
     "web:dev": "vite",
-    "web:build": "vite build"
+    "web:build": "vite build",
+    "app": "bun run web:build && electron .",
+    "app:smoke": "DECK_SMOKE=1 electron ."
   },
   "dependencies": {
     "ink": "^7.1.0",
@@ -23,6 +26,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "electron": "^43.0.0",
     "ink-testing-library": "^4.0.0",
     "typescript": "^6.0.3",
     "vite": "^8.1.2"
