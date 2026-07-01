@@ -476,7 +476,6 @@ body::before {
 
 .crew-card__agent {
   display: inline-block;
-  margin-top: 7px;
   font-size: 10.5px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -485,6 +484,31 @@ body::before {
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(0, 0, 0, 0.2);
+}
+
+.crew-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.crew-card__workspace,
+.term__workspace {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.3px;
+  color: var(--text-faint);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .crew-card__state {
@@ -646,9 +670,18 @@ body::before {
 }
 
 .term__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 14px;
   color: var(--text);
+}
+
+.term__workspace {
+  flex: none;
+  max-width: 220px;
 }
 
 .term__screen {

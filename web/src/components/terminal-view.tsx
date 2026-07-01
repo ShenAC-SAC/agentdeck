@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import type { Session } from "../types";
 import { moodFor } from "../mood";
+import { workspaceName } from "../workspace";
 
 // Embedded terminal: an xterm bound to a node-pty that runs
 // `tmux -L deck attach -t <session>` in the main process. You see the agent's
@@ -55,6 +56,7 @@ export function TerminalView({ session, onBack }: { session: Session; onBack: ()
   }, [session.id, session.tmuxTarget]);
 
   const mood = moodFor(session.state);
+  const workspace = workspaceName(session.cwd);
   return (
     <section className="term">
       <header className="term__bar">
@@ -66,6 +68,9 @@ export function TerminalView({ session, onBack }: { session: Session; onBack: ()
         </span>
         <span className="term__title">{session.title}</span>
         <span className="crew-card__agent">{session.agent}</span>
+        <span className="term__workspace" title={session.cwd}>
+          @{workspace}
+        </span>
       </header>
       <div className="term__screen" ref={hostRef} />
     </section>

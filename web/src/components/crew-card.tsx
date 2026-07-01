@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Session } from "../types";
 import { moodFor } from "../mood";
+import { workspaceName } from "../workspace";
 
 function since(ts: number): string {
   if (!ts) return "—";
@@ -25,6 +26,7 @@ export function CrewCard({
 }) {
   const mood = moodFor(session.state);
   const style = { animationDelay: `${index * 70}ms`, "--accent": mood.accent } as CSSProperties;
+  const workspace = workspaceName(session.cwd);
   return (
     <article
       className="crew-card"
@@ -39,7 +41,12 @@ export function CrewCard({
         </div>
         <div className="crew-card__ident">
           <h2 className="crew-card__title">{session.title}</h2>
-          <span className="crew-card__agent">{session.agent}</span>
+          <div className="crew-card__chips">
+            <span className="crew-card__agent">{session.agent}</span>
+            <span className="crew-card__workspace" title={session.cwd}>
+              @{workspace}
+            </span>
+          </div>
         </div>
       </div>
 
