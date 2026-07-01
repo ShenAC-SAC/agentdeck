@@ -4,9 +4,12 @@ import type { Session } from "../types";
 
 // Server-Sent Events stream of session truth: one `data:` line per current
 // session as an initial snapshot, then one line per subsequent registry
-// update. Detaches its bus listener when the client disconnects.
-export function sseResponse(events: EventEmitter, registry: Registry): Response {
+// update. A periodic `:` comment heartbeat keeps the socket under the server's
+// idle timeout so the connection stays live instead of being dropped and
+// reconnected. Detaches its bus listener and timer when the client disconnects.
+export function sseResponse(events: EventEmitter, registry: Registry, heartbeatMs = 20_000): Response {
   let onUpdate: (s: Session) => void = () => {};
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const enc = new TextEncoder();
@@ -14,9 +17,17 @@ export function sseResponse(events: EventEmitter, registry: Registry): Response 
       for (const s of registry.list()) send(s);
       onUpdate = send;
       events.on("update", onUpdate);
+      heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(enc.encode(": hb\n\n"));
+        } catch {
+          // controller closed between disconnect and cancel(); ignore
+        }
+      }, heartbeatMs);
     },
     cancel() {
       events.off("update", onUpdate);
+      if (heartbeat) clearInterval(heartbeat);
     },
   });
   return new Response(stream, {

@@ -8,13 +8,16 @@ import { spawnAgent } from "../tmux/spawn";
 import { sseResponse } from "./sse";
 import { serveStatic } from "./static";
 import { tmux } from "../tmux/tmux";
+import type { HubOptions } from "./hub";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
 // Either place works for sessionId/agent so tests can use whichever is simpler.
-export function serve(port: number, registry: Registry, events: EventEmitter) {
+export function serve(port: number, registry: Registry, events: EventEmitter, opts: HubOptions = {}) {
   return Bun.serve({
     port,
+    // SSE streams stay open indefinitely; the heartbeat keeps them under this.
+    idleTimeout: 120,
     async fetch(req) {
       const url = new URL(req.url);
 
@@ -23,7 +26,7 @@ export function serve(port: number, registry: Registry, events: EventEmitter) {
       }
 
       if (req.method === "GET" && url.pathname === "/events/stream") {
-        return sseResponse(events, registry);
+        return sseResponse(events, registry, opts.sseHeartbeatMs);
       }
 
       if (req.method === "POST" && url.pathname === "/spawn") {
@@ -31,6 +34,8 @@ export function serve(port: number, registry: Registry, events: EventEmitter) {
         if (!body.agent) return new Response("missing agent", { status: 400 });
         if (!isAgentKind(body.agent)) return new Response("unknown agent", { status: 400 });
         const spawned = await spawnAgent({ agent: body.agent, name: `deck_${Date.now()}`, registry, hubPort: port });
+        const session = registry.get(spawned.id);
+        if (session) events.emit("update", session); // push the new crew card to live clients
         return Response.json({ id: spawned.id, target: spawned.target });
       }
 

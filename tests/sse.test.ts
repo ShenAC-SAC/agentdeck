@@ -31,3 +31,18 @@ test("SSE emits initial snapshot then live updates", async () => {
     hub.stop();
   }
 });
+
+test("SSE sends heartbeat comments to keep the connection alive", async () => {
+  const hub = startHub(8811, { sseHeartbeatMs: 10 });
+  try {
+    const res = await fetch("http://localhost:8811/events/stream");
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let acc = "";
+    while (!acc.includes(":")) acc += dec.decode((await reader.read()).value);
+    expect(acc).toContain(":"); // an SSE comment line ": hb"
+    await reader.cancel();
+  } finally {
+    hub.stop();
+  }
+});
