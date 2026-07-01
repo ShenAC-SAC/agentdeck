@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { Registry } from "../src/hub/registry";
+import { Registry, titleFromPrompt } from "../src/hub/registry";
 import type { Session } from "../src/types";
 
 const base: Session = {
@@ -57,4 +57,27 @@ test("applyEvent clears a prior staleSince", () => {
   const updated = r.applyEvent({ sessionId: "a", type: "turn-end", at: 5 });
   expect(updated?.staleSince).toBeUndefined();
   expect(updated?.state).toBe("idle");
+});
+
+test("titleFromPrompt collapses whitespace and truncates", () => {
+  expect(titleFromPrompt("  fix   the login bug ")).toBe("fix the login bug");
+  expect(titleFromPrompt("x".repeat(60)).length).toBeLessThanOrEqual(48);
+});
+
+test("first turn-start prompt names an unlocked session, once", () => {
+  const r = new Registry();
+  r.upsert(mk("a", { title: "Claude Code · repo" }));
+  const named = r.applyEvent({ sessionId: "a", type: "turn-start", at: 1, summary: "refactor auth module" });
+  expect(named?.title).toBe("refactor auth module");
+  expect(named?.titleLocked).toBe(true);
+  const again = r.applyEvent({ sessionId: "a", type: "turn-start", at: 2, summary: "second prompt" });
+  expect(again?.title).toBe("refactor auth module"); // locked after the first
+});
+
+test("manual rename locks the title against auto-naming", () => {
+  const r = new Registry();
+  r.upsert(mk("a", { title: "Claude Code · repo" }));
+  expect(r.rename("a", "My name")?.titleLocked).toBe(true);
+  const evt = r.applyEvent({ sessionId: "a", type: "turn-start", at: 1, summary: "a prompt" });
+  expect(evt?.title).toBe("My name");
 });
