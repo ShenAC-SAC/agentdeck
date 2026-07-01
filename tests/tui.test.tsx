@@ -8,6 +8,7 @@ const s: Session = {
   agent: "codex",
   title: "repo-foo",
   tmuxTarget: "deck:0.0",
+  cwd: "/tmp",
   host: "local",
   state: "waiting",
   lastActivityAt: 0,

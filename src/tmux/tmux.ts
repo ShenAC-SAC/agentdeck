@@ -34,6 +34,17 @@ function mostRecentClient(clients: ClientInfo[]): ClientInfo | undefined {
   return [...clients].sort((a, b) => b.activity - a.activity)[0];
 }
 
+export function newSessionArgs(
+  name: string,
+  cmd: string,
+  opts: { configPath?: string; env?: Record<string, string>; cwd?: string } = {},
+): string[] {
+  const pre = opts.configPath ? ["-f", opts.configPath] : [];
+  const cwdArgs = opts.cwd ? ["-c", opts.cwd] : [];
+  const envArgs = Object.entries(opts.env ?? {}).flatMap(([k, v]) => ["-e", `${k}=${v}`]);
+  return [...pre, "new-session", "-d", "-s", name, ...cwdArgs, ...envArgs, cmd];
+}
+
 export const tmux = {
   run,
   async listPanes(): Promise<PaneInfo[]> {
@@ -60,11 +71,9 @@ export const tmux = {
   async newSession(
     name: string,
     cmd: string,
-    opts: { configPath?: string; env?: Record<string, string> } = {},
+    opts: { configPath?: string; env?: Record<string, string>; cwd?: string } = {},
   ): Promise<string> {
-    const pre = opts.configPath ? ["-f", opts.configPath] : [];
-    const envArgs = Object.entries(opts.env ?? {}).flatMap(([k, v]) => ["-e", `${k}=${v}`]);
-    await run([...pre, "new-session", "-d", "-s", name, ...envArgs, cmd]);
+    await run(newSessionArgs(name, cmd, opts));
     return `${name}:0.0`;
   },
 };

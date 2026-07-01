@@ -1,5 +1,7 @@
 import type { Registry } from "./registry";
 import type { EventEmitter } from "node:events";
+import { stat } from "node:fs/promises";
+import { isAbsolute } from "node:path";
 import type { AdapterEvent } from "../adapters/types";
 import { isAgentKind } from "../types";
 import { mapClaudeHook } from "../adapters/claude-code";
@@ -30,10 +32,19 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
       }
 
       if (req.method === "POST" && url.pathname === "/spawn") {
-        const body = (await req.json().catch(() => ({}))) as { agent?: unknown };
+        const body = (await req.json().catch(() => ({}))) as { agent?: unknown; cwd?: unknown };
         if (!body.agent) return new Response("missing agent", { status: 400 });
         if (!isAgentKind(body.agent)) return new Response("unknown agent", { status: 400 });
-        const spawned = await spawnAgent({ agent: body.agent, name: `deck_${Date.now()}`, registry, hubPort: port });
+        const cwd = typeof body.cwd === "string" ? body.cwd.trim() : undefined;
+        if (body.cwd != null && !cwd) return new Response("cwd must be a non-empty absolute directory", { status: 400 });
+        const cwdError = cwd ? await validateCwd(cwd) : undefined;
+        if (cwdError) return new Response(cwdError, { status: 400 });
+        let spawned: Awaited<ReturnType<typeof spawnAgent>>;
+        try {
+          spawned = await spawnAgent({ agent: body.agent, name: `deck_${Date.now()}`, registry, hubPort: port, cwd });
+        } catch (e) {
+          return new Response(`spawn failed: ${e instanceof Error ? e.message : String(e)}`, { status: 500 });
+        }
         const session = registry.get(spawned.id);
         if (session) events.emit("update", session); // push the new crew card to live clients
         return Response.json({ id: spawned.id, target: spawned.target });
@@ -77,4 +88,14 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
 
 function asString(v: unknown): string | undefined {
   return typeof v === "string" && v.length > 0 ? v : undefined;
+}
+
+async function validateCwd(cwd: string): Promise<string | undefined> {
+  if (!isAbsolute(cwd)) return "cwd must be an absolute directory";
+  try {
+    const s = await stat(cwd);
+    if (!s.isDirectory()) return "cwd must be an existing directory";
+  } catch {
+    return "cwd must be an existing directory";
+  }
 }

@@ -2,11 +2,14 @@ import { test, expect } from "bun:test";
 import { startHub } from "../src/hub/hub";
 import type { Session } from "../src/types";
 
+const hasTmux = Bun.which("tmux") != null;
+
 const base: Session = {
   id: "s1",
   agent: "claude-code",
   title: "t",
   tmuxTarget: "deck:0.0",
+  cwd: "/tmp",
   host: "local",
   state: "working",
   lastActivityAt: 0,
@@ -75,12 +78,103 @@ test("GET /sessions returns registered sessions", async () => {
   }
 });
 
+async function killSpawnedSession(res: Response): Promise<void> {
+  if (!res.ok) return;
+  const spawned = (await res.json().catch(() => ({}))) as { id?: string };
+  if (spawned.id) {
+    Bun.spawnSync(["tmux", "-L", "deck", "kill-session", "-t", spawned.id]);
+  }
+}
+
 test("POST /spawn without agent -> 400", async () => {
   const hub = startHub(8803);
   try {
     const res = await fetch("http://localhost:8803/spawn", { method: "POST", body: "{}" });
     expect(res.status).toBe(400);
   } finally {
+    hub.stop();
+  }
+});
+
+test("POST /spawn rejects a relative cwd", async () => {
+  const hub = startHub(8806);
+  try {
+    const res = await fetch("http://localhost:8806/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "generic", cwd: "relative" }),
+    });
+    await killSpawnedSession(res);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("absolute");
+  } finally {
+    hub.stop();
+  }
+});
+
+test("POST /spawn rejects a missing cwd", async () => {
+  const hub = startHub(8807);
+  try {
+    const res = await fetch("http://localhost:8807/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "generic", cwd: "/tmp/agentdeck-missing-cwd" }),
+    });
+    await killSpawnedSession(res);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("directory");
+  } finally {
+    hub.stop();
+  }
+});
+
+test("POST /spawn rejects a cwd that is not a directory", async () => {
+  const path = "/tmp/agentdeck-cwd-file";
+  await Bun.write(path, "not a directory");
+  const hub = startHub(8808);
+  try {
+    const res = await fetch("http://localhost:8808/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "generic", cwd: path }),
+    });
+    await killSpawnedSession(res);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("directory");
+  } finally {
+    hub.stop();
+  }
+});
+
+test.skipIf(!hasTmux)("POST /spawn stores a validated cwd on the session", async () => {
+  const hub = startHub(8809);
+  try {
+    const res = await fetch("http://localhost:8809/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "generic", cwd: "/tmp" }),
+    });
+    expect(res.status).toBe(200);
+    const spawned = (await res.json()) as { id: string };
+    expect(hub.registry.get(spawned.id)?.cwd).toBe("/tmp");
+    Bun.spawnSync(["tmux", "-L", "deck", "kill-session", "-t", spawned.id]);
+  } finally {
+    hub.stop();
+  }
+});
+
+test.skipIf(!hasTmux)("POST /spawn reports spawn failures with a readable body", async () => {
+  const path = "/tmp/agentdeck-tmpdir-file";
+  await Bun.write(path, "not a directory");
+  const oldTmp = process.env.TMPDIR;
+  process.env.TMPDIR = path;
+  const hub = startHub(8812);
+  try {
+    const res = await fetch("http://localhost:8812/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "generic", cwd: "/tmp" }),
+    });
+    expect(res.ok).toBe(false);
+    expect(await res.text()).toContain("spawn failed");
+  } finally {
+    if (oldTmp == null) delete process.env.TMPDIR;
+    else process.env.TMPDIR = oldTmp;
     hub.stop();
   }
 });

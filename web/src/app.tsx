@@ -1,34 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSessions, jump, spawn, subscribe } from "./api";
-import { AGENT_KINDS } from "./types";
 import type { AgentKind, Session, SessionState } from "./types";
 import { CrewCard } from "./components/crew-card";
-import { Sidebar, type NavItem } from "./components/sidebar";
+import { TerminalView } from "./components/terminal-view";
+import { WorkspaceRail, type MainView } from "./components/workspace-rail";
+import { pickFolder } from "./host";
+import { hasPty } from "./pty";
+import { groupByWorkspace } from "./workspace";
 
 // Attention first: waiting/error rise to the top, resting sinks to the bottom.
 const ORDER: Record<SessionState, number> = { waiting: 0, error: 1, working: 2, idle: 3 };
 
-const CATEGORIES = [
-  { key: "all", label: "All" },
-  { key: "claude-code", label: "Claude Code" },
-  { key: "codex", label: "Codex" },
-  { key: "opencode", label: "opencode" },
-  { key: "others", label: "Others" },
-] as const;
-type Filter = (typeof CATEGORIES)[number]["key"];
-
-function inCategory(s: Session, key: Filter): boolean {
-  if (key === "all") return true;
-  if (key === "others") return s.agent === "generic";
-  return s.agent === key;
-}
-
 export function App() {
   const [sessions, setSessions] = useState<Map<string, Session>>(new Map());
   const [, setTick] = useState(0);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [view, setView] = useState<MainView>({ kind: "overview" });
   const [agent, setAgent] = useState<AgentKind>("claude-code");
   const [toast, setToast] = useState("");
+
+  // Shot/deep-link mode: ?open=<id> jumps straight into a session's terminal.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("open");
+    if (id) setView({ kind: "session", id });
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -56,83 +50,96 @@ export function App() {
     [sessions],
   );
 
-  const navItems: NavItem[] = useMemo(
-    () =>
-      CATEGORIES.map((c) => {
-        const inCat = all.filter((s) => inCategory(s, c.key));
-        return {
-          key: c.key,
-          label: c.label,
-          total: inCat.length,
-          waiting: inCat.filter((s) => s.state === "waiting").length,
-        };
-      }),
-    [all],
-  );
+  const groups = useMemo(() => groupByWorkspace(all), [all]);
+  const waiting = all.filter((s) => s.state === "waiting").length;
 
-  const shown = all.filter((s) => inCategory(s, filter));
-  const shownWaiting = shown.filter((s) => s.state === "waiting").length;
-  const activeLabel = CATEGORIES.find((c) => c.key === filter)?.label ?? "All";
-
-  async function onJump(id: string) {
-    const res = await jump(id);
+  // Under Electron, selecting a session opens its embedded terminal; in a plain
+  // browser there is no pty, so fall back to the tmux jump.
+  async function onSelect(v: MainView) {
+    if (v.kind === "overview") {
+      setView(v);
+      return;
+    }
+    if (hasPty()) {
+      setView(v);
+      return;
+    }
+    const res = await jump(v.id);
     if (!res.ok) {
       setToast((await res.text()) || "jump failed");
       setTimeout(() => setToast(""), 4500);
     }
   }
 
+  async function onNewSession() {
+    const dir = await pickFolder();
+    if (dir === null) return;
+    const id = await spawn(agent, dir);
+    if (!id) {
+      setToast("spawn failed");
+      setTimeout(() => setToast(""), 4500);
+      return;
+    }
+    if (hasPty()) setView({ kind: "session", id }); // straight into the new session's terminal
+  }
+
+  const openSession = view.kind === "session" ? sessions.get(view.id) : undefined;
+  const showTerminal = view.kind === "session" && hasPty();
+
   return (
     <div className="app">
-      <Sidebar items={navItems} active={filter} onSelect={(k) => setFilter(k as Filter)} />
+      <WorkspaceRail
+        groups={groups}
+        selected={view}
+        agent={agent}
+        onAgentChange={setAgent}
+        onSelect={onSelect}
+        onNewSession={onNewSession}
+      />
 
       <section className="main">
-        <header className="main__bar">
-          <div>
-            <h1 className="main__title">{activeLabel}</h1>
-            <p className="main__sub">
-              {shown.length} crew{" "}
-              {shownWaiting > 0 ? (
-                <>
-                  · <span className="hot">{shownWaiting} waiting</span>
-                </>
-              ) : (
-                <>· all steady</>
-              )}
-            </p>
-          </div>
-          <div className="spawn">
-            <select
-              className="spawn__select"
-              value={agent}
-              onChange={(e) => setAgent(e.target.value as AgentKind)}
-            >
-              {AGENT_KINDS.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-            <button className="spawn__btn" type="button" onClick={() => spawn(agent)}>
-              ＋ New session
-            </button>
-          </div>
-        </header>
-
-        {shown.length === 0 ? (
-          <div className="empty">
-            <div className="porthole porthole--big" aria-hidden>
-              <span className="porthole__face">🫧</span>
+        {showTerminal ? (
+          openSession ? (
+            <TerminalView session={openSession} onBack={() => setView({ kind: "overview" })} />
+          ) : (
+            <div className="main__connecting">
+              <p className="muted">connecting to session…</p>
             </div>
-            <p className="empty__lead">No crew here yet.</p>
-            <p className="muted">Spawn a session to bring someone on deck.</p>
-          </div>
+          )
         ) : (
-          <main className="grid">
-            {shown.map((s, i) => (
-              <CrewCard key={s.id} session={s} index={i} onJump={onJump} />
-            ))}
-          </main>
+          <>
+            <header className="main__bar">
+              <div>
+                <h1 className="main__title">Overview</h1>
+                <p className="main__sub">
+                  {all.length} crew{" "}
+                  {waiting > 0 ? (
+                    <>
+                      · <span className="hot">{waiting} waiting</span>
+                    </>
+                  ) : (
+                    <>· all steady</>
+                  )}
+                </p>
+              </div>
+            </header>
+
+            {all.length === 0 ? (
+              <div className="empty">
+                <div className="porthole porthole--big" aria-hidden>
+                  <span className="porthole__face">🫧</span>
+                </div>
+                <p className="empty__lead">No crew here yet.</p>
+                <p className="muted">Spawn a session to bring someone on deck.</p>
+              </div>
+            ) : (
+              <main className="grid">
+                {all.map((s, i) => (
+                  <CrewCard key={s.id} session={s} index={i} onJump={(id) => onSelect({ kind: "session", id })} />
+                ))}
+              </main>
+            )}
+          </>
         )}
       </section>
 
