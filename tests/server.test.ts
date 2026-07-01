@@ -294,6 +294,30 @@ test("DELETE /sessions/:id for unknown session -> 404", async () => {
   }
 });
 
+test.skipIf(!hasTmux)("PATCH title persists @deck_title to tmux for rehydration", async () => {
+  const hub = startHub(8819);
+  let id: string | undefined;
+  try {
+    const spawned = (await (await fetch("http://localhost:8819/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "generic", cwd: "/tmp" }),
+    })).json()) as { id: string };
+    id = spawned.id;
+    await fetch(`http://localhost:8819/sessions/${id}/title`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: "Persisted name" }),
+    });
+    const { discoverDeckSessions } = await import("../src/hub/rehydrate");
+    const found = await discoverDeckSessions();
+    const mine = found.find((f) => f.id === id);
+    expect(mine?.title).toBe("Persisted name");
+    expect(mine?.titleLocked).toBe(true);
+  } finally {
+    if (id) Bun.spawnSync(["tmux", "-L", "deck", "kill-session", "-t", id]);
+    hub.stop();
+  }
+});
+
 test("POST /jump for unknown session -> 404", async () => {
   const hub = startHub(8805);
   try {

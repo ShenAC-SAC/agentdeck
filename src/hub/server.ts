@@ -109,6 +109,10 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         if (title.length > 80) return new Response("title must be 80 characters or fewer", { status: 400 });
         const updated = registry.rename(id, title);
         if (!updated) return new Response("unknown session", { status: 404 });
+        if (updated.host === "local") {
+          await tmux.setSessionOption(id, "@deck_title", updated.title).catch(() => {});
+          await tmux.setSessionOption(id, "@deck_title_locked", "1").catch(() => {});
+        }
         events.emit("update", updated);
         return Response.json(updated);
       }
@@ -120,8 +124,15 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         if (!sessionId) return new Response("missing sessionId", { status: 400 });
         const evt: AdapterEvent =
           agent === "codex" ? mapCodexNotify(sessionId, body) : mapClaudeHook(sessionId, body);
+        const before = registry.get(sessionId);
         const updated = registry.applyEvent(evt);
-        if (updated) events.emit("update", updated);
+        if (updated) {
+          if (updated.host === "local" && before && before.title !== updated.title) {
+            await tmux.setSessionOption(sessionId, "@deck_title", updated.title).catch(() => {});
+            await tmux.setSessionOption(sessionId, "@deck_title_locked", "1").catch(() => {});
+          }
+          events.emit("update", updated);
+        }
         return new Response("ok");
       }
 
