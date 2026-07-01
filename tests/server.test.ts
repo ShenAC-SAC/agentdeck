@@ -63,3 +63,24 @@ test("missing sessionId -> 400", async () => {
     hub.stop();
   }
 });
+
+test("GET /sessions returns registered sessions", async () => {
+  const hub = startHub(8802);
+  try {
+    hub.registry.upsert({ ...base, id: "s3" });
+    const sessions = (await (await fetch("http://localhost:8802/sessions")).json()) as Session[];
+    expect(sessions.some((s) => s.id === "s3")).toBe(true);
+  } finally {
+    hub.stop();
+  }
+});
+
+test("POST /spawn without agent -> 400", async () => {
+  const hub = startHub(8803);
+  try {
+    const res = await fetch("http://localhost:8803/spawn", { method: "POST", body: "{}" });
+    expect(res.status).toBe(400);
+  } finally {
+    hub.stop();
+  }
+});

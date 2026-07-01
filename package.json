@@ -3,9 +3,13 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
+  "bin": {
+    "deck": "bin/deck.tsx"
+  },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deck": "bun bin/deck.tsx"
   },
   "dependencies": {
     "ink": "^7.1.0",
