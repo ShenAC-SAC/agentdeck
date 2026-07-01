@@ -33,6 +33,24 @@ test("SSE emits initial snapshot then live updates", async () => {
   }
 });
 
+test("SSE forwards a remove event with the session id", async () => {
+  const hub = startHub(8823);
+  try {
+    hub.registry.upsert(base);
+    const res = await fetch("http://localhost:8823/events/stream");
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let acc = dec.decode((await reader.read()).value); // snapshot first -> start() has run
+    expect(acc).toContain("sse1");
+    hub.events.emit("remove", { id: "z9" });
+    while (!acc.includes("event: remove")) acc += dec.decode((await reader.read()).value);
+    expect(acc).toContain('"id":"z9"');
+    await reader.cancel();
+  } finally {
+    hub.stop();
+  }
+});
+
 test("SSE sends heartbeat comments to keep the connection alive", async () => {
   const hub = startHub(8811, { sseHeartbeatMs: 10 });
   try {
