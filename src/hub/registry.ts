@@ -25,6 +25,20 @@ export class Registry {
     return updated;
   }
 
+  remove(id: string): Session | undefined {
+    const s = this.map.get(id);
+    if (s) this.map.delete(id);
+    return s;
+  }
+
+  setStale(id: string, since: number | undefined): Session | undefined {
+    const current = this.map.get(id);
+    if (!current) return undefined;
+    const updated: Session = { ...current, staleSince: since };
+    this.map.set(id, updated);
+    return updated;
+  }
+
   applyEvent(e: AdapterEvent): Session | undefined {
     const s = this.map.get(e.sessionId);
     if (!s) return undefined;
@@ -34,6 +48,7 @@ export class Registry {
       state: nextState(s.state, e),
       lastActivityAt: e.at,
       lastSummaryLine: summary,
+      staleSince: undefined,
     };
     this.map.set(s.id, updated);
     return updated;

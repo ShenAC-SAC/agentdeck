@@ -18,4 +18,5 @@ export interface Session {
   state: SessionState;
   lastActivityAt: number; // epoch millis
   lastSummaryLine: string;
+  staleSince?: number; // set by the liveness monitor when a working session's pane went quiet
 }

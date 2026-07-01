@@ -32,3 +32,29 @@ test("list returns all", () => {
   r.upsert(base);
   expect(r.list().length).toBe(1);
 });
+
+const mk = (id: string, over: Partial<Session> = {}): Session => ({ ...base, id, ...over });
+
+test("remove deletes and returns the session", () => {
+  const r = new Registry();
+  r.upsert(mk("a"));
+  expect(r.remove("a")?.id).toBe("a");
+  expect(r.get("a")).toBeUndefined();
+  expect(r.remove("a")).toBeUndefined();
+});
+
+test("setStale sets and clears staleSince", () => {
+  const r = new Registry();
+  r.upsert(mk("a"));
+  expect(r.setStale("a", 1234)?.staleSince).toBe(1234);
+  expect(r.setStale("a", undefined)?.staleSince).toBeUndefined();
+  expect(r.setStale("missing", 1)).toBeUndefined();
+});
+
+test("applyEvent clears a prior staleSince", () => {
+  const r = new Registry();
+  r.upsert(mk("a", { staleSince: 999, state: "working" }));
+  const updated = r.applyEvent({ sessionId: "a", type: "turn-end", at: 5 });
+  expect(updated?.staleSince).toBeUndefined();
+  expect(updated?.state).toBe("idle");
+});
