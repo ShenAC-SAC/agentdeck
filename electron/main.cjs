@@ -15,6 +15,11 @@ const SMOKE = process.env.DECK_SMOKE === "1";
 const SHOT = process.env.DECK_SHOT || ""; // path: screenshot the embedded terminal then quit
 const SHOT_AGENT = process.env.DECK_SHOT_AGENT || "generic";
 const SHOT_CLICK_REMOTE = process.env.DECK_SHOT_CLICK_REMOTE === "1";
+const ICON_PATH = path.join(__dirname, "assets", "icon.png");
+
+// Set before the ready event so the macOS menu bar / dock stop saying "Electron".
+// (Packaged builds get the name + .icns from Info.plist; this covers dev runs.)
+app.setName("AgentDeck");
 
 let hub = null;
 let win = null;
@@ -256,6 +261,7 @@ function createWindow() {
     minWidth: 720,
     minHeight: 480,
     title: "AgentDeck",
+    icon: ICON_PATH,
     backgroundColor: "#14100c",
     titleBarStyle: "hiddenInset",
     webPreferences: {
@@ -396,6 +402,15 @@ app.whenReady().then(async () => {
   if (SMOKE) {
     console.log(up ? "SMOKE OK: hub reachable" : "SMOKE FAIL: hub unreachable");
     return quit();
+  }
+
+  // In dev the dock shows Electron's default icon; point it at the brass anchor.
+  if (process.platform === "darwin" && app.dock) {
+    try {
+      app.dock.setIcon(ICON_PATH);
+    } catch (e) {
+      console.error("dock icon skipped:", e && e.message);
+    }
   }
 
   setupPty();
