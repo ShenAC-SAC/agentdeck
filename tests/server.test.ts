@@ -1,5 +1,8 @@
 import { test, expect } from "bun:test";
+import { Database } from "bun:sqlite";
 import { startHub } from "../src/hub/hub";
+import { applySchema } from "../src/hub/db";
+import { archive } from "../src/hub/persistence";
 import type { Session } from "../src/types";
 
 const hasTmux = Bun.which("tmux") != null;
@@ -108,6 +111,26 @@ test("GET /sessions returns registered sessions", async () => {
     expect(sessions.some((s) => s.id === "s3")).toBe(true);
   } finally {
     hub.stop();
+  }
+});
+
+test("GET /history returns archived rows; DELETE removes them", async () => {
+  const db = new Database(":memory:");
+  applySchema(db);
+  archive(db, { ...base, id: "hist1", state: "working" }, "reaped", 123);
+  const hub = startHub(8827, { db });
+  try {
+    const list = (await (await fetch("http://localhost:8827/history")).json()) as Array<{ id: string }>;
+    expect(list.length).toBeGreaterThan(0);
+    const id = list[0].id;
+    expect((await fetch(`http://localhost:8827/history/${encodeURIComponent(id)}`, { method: "DELETE" })).status).toBe(
+      200,
+    );
+    const after = (await (await fetch("http://localhost:8827/history")).json()) as Array<{ id: string }>;
+    expect(after.find((r) => r.id === id)).toBeUndefined();
+  } finally {
+    hub.stop();
+    db.close();
   }
 });
 

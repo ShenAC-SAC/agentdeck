@@ -13,6 +13,7 @@ import { tmux } from "../tmux/tmux";
 import type { HubOptions } from "./hub";
 import { detectLocalAgents } from "../agents/availability";
 import { sshTargetFromHost, validateRemoteWorkspace } from "../remote/ssh";
+import { listArchived, deleteArchived } from "./persistence";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
@@ -27,6 +28,11 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
 
       if (req.method === "GET" && url.pathname === "/sessions") {
         return Response.json(registry.list());
+      }
+
+      if (req.method === "GET" && url.pathname === "/history") {
+        if (!opts.db) return Response.json([]);
+        return Response.json(listArchived(opts.db));
       }
 
       if (req.method === "GET" && url.pathname === "/agents") {
@@ -167,6 +173,15 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         const removed = registry.remove(id);
         if (removed) events.emit("remove", removed, "closed");
         return new Response("ok");
+      }
+
+      const historyDeleteMatch = req.method === "DELETE" ? url.pathname.match(/^\/history\/([^/]+)$/) : null;
+      if (historyDeleteMatch) {
+        if (!opts.db) return new Response("no store", { status: 503 });
+        const id = decodeURIComponent(historyDeleteMatch[1]);
+        return deleteArchived(opts.db, id)
+          ? new Response("ok")
+          : new Response("unknown archived session", { status: 404 });
       }
 
       if (req.method === "GET") {
