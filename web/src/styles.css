@@ -920,6 +920,13 @@ body {
   animation: lampGlow 2s ease-in-out infinite;
 }
 
+/* ---- Agent vendor mark ------------------------------------------------- */
+.agent-mark {
+  display: block;
+  flex: none;
+  color: var(--text-dim);
+}
+
 /* ---- Motion ----------------------------------------------------------- */
 @keyframes bubbleBreathe {
   0%,
