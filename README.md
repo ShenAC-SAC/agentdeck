@@ -81,4 +81,4 @@ bun run web:build     # build the web bundle
 
 ## License
 
-Not yet chosen — **MIT** is recommended for an open-source release. Add a `LICENSE` file before publishing.
+[MIT](LICENSE) © 2026 AochenShen99
