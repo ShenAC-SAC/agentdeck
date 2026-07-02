@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { controlPath, masterArgs, sshArgs } from "../src/remote/connection";
 import { remoteAttachCommand, remoteNewSessionCommand, sshTargetFromHost, shQuote } from "../src/remote/ssh";
 
 test("sshTargetFromHost accepts ssh host ids only", () => {
@@ -25,4 +26,21 @@ test("remoteAttachCommand builds an ssh attach command", () => {
     "devbox",
     "tmux -L deck attach -t 'deck_1'",
   ]);
+});
+
+test("sshArgs reuses the ControlMaster socket for the alias", () => {
+  const cp = controlPath("devbox");
+  expect(sshArgs("devbox", "tmux -L deck list-sessions")).toEqual([
+    "-o",
+    `ControlPath=${cp}`,
+    "devbox",
+    "tmux -L deck list-sessions",
+  ]);
+});
+
+test("masterArgs opens a persistent background master", () => {
+  const args = masterArgs("devbox");
+  expect(args).toContain("-M");
+  expect(args).toContain("-N");
+  expect(args).toContain(`ControlPath=${controlPath("devbox")}`);
 });
