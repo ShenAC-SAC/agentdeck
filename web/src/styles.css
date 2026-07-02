@@ -927,7 +927,161 @@ body {
   color: var(--text-dim);
 }
 
+/* ---- Instrument rows (overview) ---------------------------------------- */
+.deck {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.session-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-group__title {
+  margin: 0 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.session-group--attention {
+  padding: 10px 12px 12px;
+  border-left: 2px solid var(--brass);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: rgba(226, 165, 76, 0.05);
+}
+
+.session-group--attention .session-group__title {
+  color: var(--brass);
+  border-bottom-color: rgba(226, 165, 76, 0.2);
+}
+
+.session-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) minmax(0, 1.6fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: rowIn 0.24s ease forwards;
+  transition: background 0.14s ease;
+}
+
+.session-row:hover {
+  background: var(--panel-hi);
+}
+
+.session-row--editing {
+  grid-template-columns: auto minmax(0, 1fr);
+  background: var(--panel-hi);
+}
+
+.session-row__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.session-row__summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.session-row__kind {
+  margin-right: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.session-row__since {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.session-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+
+.session-row:hover .session-row__actions,
+.session-row__actions:focus-within {
+  opacity: 1;
+}
+
+.session-row__actions button {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+
+.session-row__actions button:hover {
+  color: var(--text);
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.session-row__actions button:last-child:hover {
+  color: var(--tone-error);
+  border-color: color-mix(in srgb, var(--tone-error) 45%, transparent);
+  background: rgba(229, 103, 75, 0.1);
+}
+
+.session-row[data-state="waiting"] {
+  box-shadow: inset -2px 0 0 var(--tone-waiting);
+}
+
+.session-row__rename-input {
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--brass-soft);
+  border-radius: 7px;
+  padding: 4px 8px;
+  outline: none;
+}
+
 /* ---- Motion ----------------------------------------------------------- */
+@keyframes rowIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes bubbleBreathe {
   0%,
   100% {
@@ -988,10 +1142,12 @@ body {
   .cursor,
   .crew-face__bubble,
   .crew-face[data-state="working"] .crew-face__lamp,
+  .session-row,
   .toast {
     animation: none;
   }
-  .crew-card {
+  .crew-card,
+  .session-row {
     opacity: 1;
     transform: none;
   }
