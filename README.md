@@ -1,120 +1,172 @@
-# AgentDeck
-
-One deck for every coding agent.
-
-If your day has turned into five terminal windows, a few agent CLIs, and constant context switching just to see who finished, who got stuck, and who is asking for approval, AgentDeck is for that moment. It gives you one quiet bridge for your agent crew: start work, walk away, and come back when something actually needs judgment.
-
-Remote attach is not ready yet, but the product direction is the same pain: stop bouncing between local windows, tmux panes, and SSH boxes just to poll whether an agent needs you.
-
-> **Status:** early alpha. macOS-first. Local sessions only for now; remote hosts are on the roadmap. Run from source today. A packaged macOS release is planned, but there is no `.dmg` yet.
+<div align="center">
 
 ![AgentDeck overview](docs/media/overview.png)
 
-The screenshot is a temporary product capture. A polished promotional image will replace it later.
+![Status](https://img.shields.io/badge/status-early_alpha-d98c7a)
+![Platform](https://img.shields.io/badge/platform-macOS-2f89ae)
+![Runtime](https://img.shields.io/badge/runtime-Bun-ecb75f)
+[![License: MIT](https://img.shields.io/badge/license-MIT-1f6b8c)](LICENSE)
 
-## What AgentDeck Does
+[Why](#why-agentdeck) · [Features](#features) · [Quickstart](#quickstart) · [How it works](#how-it-works) · [Comparison](#how-it-compares) · [Roadmap](#roadmap)
 
-- **One deck for many agents**: Claude Code, Codex, opencode, and plain shell sessions appear in the same workspace-aware dashboard.
-- **Needs-you triage**: completed turns, approvals, questions, and blocked sessions rise to the top so you do not have to babysit every terminal.
-- **Unread attention badges**: the macOS tray and Dock badge show attention you have not looked at yet. Opening a session can clear the badge without erasing the session's `Needs you` state.
-- **Embedded terminals**: open a session inline and continue typing without hunting for the original terminal window.
-- **Liveness checks**: missing tmux sessions are removed, and quiet long-running sessions can be marked as stale.
-- **Workspace grouping**: sessions from the same repo stay together, so a multi-agent workflow is easier to scan.
+</div>
 
-## Current Limits
+---
 
-- macOS is the primary target.
-- Sessions run locally in a private tmux socket (`tmux -L deck`).
-- Remote host UI is present as a direction, but remote agent mode is not ready.
-- The desktop app runs from source through the repo's Electron dependency.
-- No signed `.dmg`, notarization, auto-update, or installer flow yet.
+## Why AgentDeck
 
-## How It Works
+Running one coding agent is easy. Running several turns into a tab-hunting
+exercise: which terminal finished? Which one has been waiting twenty minutes for
+an approval you never saw? Which one silently died?
 
-AgentDeck is an external observer, not a replacement agent runtime.
+Each vendor ships a great cockpit **for its own agent**. Nobody ships the layer
+above — the one that answers a simpler question: *right now, across everything
+I have running, where should my attention go?*
 
-- A Bun hub stores session state and serves HTTP/SSE.
-- Agent sessions run in tmux, so they survive the UI.
-- Claude Code and Codex hooks map native events into a shared state machine.
-- Terminal-output heuristics provide a fallback signal for generic shells.
-- React renders the dashboard.
-- Electron adds the macOS app shell, tray/Dock badges, native notifications, and embedded terminals through `node-pty`.
+AgentDeck is that layer. It is deliberately **not** another agent, IDE, or
+terminal replacement. Your agents keep running in real tmux sessions on your
+machine; AgentDeck watches them all and routes your attention.
 
-The state model is intentionally small:
+**Start work. Walk away. Come back only when something needs judgment.**
 
-- `Working`: the user sent work and the session is active.
-- `Needs you`: the agent reached a handoff, completion, approval, or question.
-- `Resting`: no active handoff.
-- `Error`: something failed.
+## Who it's for
 
-## Requirements
+AgentDeck earns its place when your day looks like this:
 
-- macOS
-- [Bun](https://bun.sh)
-- tmux 3.x
-- Optional agent CLIs: Claude Code, Codex, opencode
+- several agent sessions in flight at once, across multiple repos;
+- a mix of vendors — Claude Code here, Codex there, opencode for the third thing;
+- long-running work where you'd rather leave than watch, but must be called
+  back for approvals, questions, and failures.
+
+For a single agent in a single window, your vendor's own app is great. With
+several sessions, multiple vendors, and a few repos, the deck starts paying rent.
+
+## Features
+
+- **One deck, every vendor** — Claude Code, Codex, opencode, and plain shell
+  sessions in a single workspace-aware dashboard.
+- **Needs-you triage** — an attention panel ranks what's actionable: waiting
+  for input first, then errors, then stalled sessions, oldest first.
+- **Walk-away notifications** — native macOS notifications when a session
+  needs approval, asks a question, errors, or stalls. Clicking one opens that
+  exact session.
+- **Unread badges** — tray and Dock badges track attention you haven't looked
+  at yet.
+- **Embedded terminals** — open any session inline and keep typing; no hunting
+  for the original window.
+- **Sessions outlive the app** — agents run in a private tmux socket, so
+  quitting or relaunching AgentDeck never kills your work. On restart, live
+  sessions reappear with their names intact.
+- **Liveness you can trust** — dead sessions disappear from the deck; a
+  "working" session whose output has been frozen for two minutes gets flagged
+  as stalled.
+- **Names that mean something** — sessions are auto-titled from their first
+  prompt, grouped by repo, and manual renames stick.
+
+## The state model
+
+AgentDeck keeps the model small on purpose:
+
+| State | Meaning |
+| --- | --- |
+| **Working** | You sent work; the agent is on it. |
+| **Needs you** | The agent hit a handoff: done, approval, or question. |
+| **Resting** | Nothing active, nothing pending. |
+| **Error** | Something failed. |
 
 ## Quickstart
+
+Requirements: macOS, [Bun](https://bun.sh), tmux 3.x, and whichever agent CLIs
+you use (Claude Code, Codex, opencode — all optional).
 
 ```bash
 git clone https://github.com/ShenAC-SAC/agentdeck.git
 cd agentdeck
 bun install
+bun run app        # desktop app
 ```
 
-Launch the desktop app:
+Or drive it from the CLI/TUI:
 
 ```bash
-bun run app
-```
-
-Or run the CLI/TUI:
-
-```bash
-bun run deck
-```
-
-Useful commands while the hub is running:
-
-```bash
-bun run deck new claude-code
+bun run deck                    # TUI
+bun run deck new claude-code    # spawn an agent session
 bun run deck new codex
 bun run deck new opencode
-bun run deck new generic
+bun run deck new generic        # plain shell
 bun run deck ls
 ```
+
+> **Status:** early alpha, macOS-first, local sessions only. Run-from-source is
+> the supported install path today; a packaged `.dmg` is on the roadmap.
+
+## How it works
+
+AgentDeck is an **external observer**, not an agent runtime. Nothing about your
+agents changes; the deck watches from above.
+
+```
+┌────────────────  AgentDeck app (Electron + React)  ────────────────┐
+│   workspace rail · attention panel · embedded terminals · badges   │
+└──────────────▲──────────────────────────────────────▲──────────────┘
+               │ HTTP + SSE                           │ node-pty
+┌──────────────┴───────────────┐        ┌─────────────┴──────────────┐
+│         Bun hub (:8799)      │        │   tmux -L deck (private)   │
+│  registry · liveness sweeper │◄───────│   one session per agent    │
+│  adapters · notifications    │        │   — survives the UI        │
+└──────────────▲───────────────┘        └─────────────▲──────────────┘
+               │ hooks & heuristics                   │
+           Claude Code  ·  Codex  ·  opencode  ·  plain shells
+```
+
+- Agent sessions live in tmux on a private socket (`tmux -L deck`), so they
+  survive the UI — and the UI can always reattach.
+- Claude Code and Codex **hooks** map native agent events into one shared state
+  machine; terminal-output heuristics cover generic shells.
+- A liveness sweeper reaps dead sessions and flags stalled ones.
+- The Bun hub serves state over HTTP/SSE; React renders it; Electron adds the
+  macOS shell, notifications, badges, and embedded terminals.
+
+## How it compares
+
+- **Claude Code desktop / Codex app** — excellent cockpits for their own agent,
+  including parallel sessions. But each shows only its own slice, and their
+  remote stories route through their own surfaces with separately-siloed
+  session histories. AgentDeck is the neutral pane above all vendors, with your
+  own tmux as the single substrate.
+- **claude-squad and other TUI managers** — closest neighbours, and good ones.
+  AgentDeck bets on a different shape: a desktop app organized around
+  *attention* — native notifications, unread badges, needs-you triage — rather
+  than a terminal UI organized around session switching.
+- **tmux by hand** — the baseline we love and build on. AgentDeck is what the
+  tmux grid can't be: state-aware, vendor-aware, and quiet until something
+  actually needs you.
 
 ## Development
 
 ```bash
-bun test
+bun test              # free port 8799 first if a dev app is running
 bun run typecheck
 bun run web:build
-bun run app:smoke
+bun run app:smoke     # headless wiring check
 ```
-
-Before running the full test suite, stop any running dev app that is listening on port `8799`.
-
-## Release Plan
-
-The first public version is a GitHub preview intended for source-based use. A real macOS release should come later, after the packaging path is verified:
-
-- Electron packaging choice
-- app signing
-- notarization
-- `.dmg` or zip distribution
-- upgrade story
-
-Until then, the recommended install path is `git clone` + `bun install` + `bun run app`.
 
 ## Roadmap
 
-- Remote hosts over SSH.
-- Packaged macOS app.
-- Durable run history and session archive.
-- Resume support for agent CLIs that expose it.
-- Cross-agent collision signals, such as two agents touching the same files.
-- Better stuck/looping detection.
+Ordered by intent — lifecycle first, then remote:
+
+- [ ] **Session lifecycle** — dead sessions become durable, browsable records
+      instead of vanishing; one-click resume for agents that support it
+      (`claude --resume` first).
+- [ ] **Session timeline** — per-session history of state transitions.
+- [ ] **Remote hosts** — manage tmux-backed agent sessions on your own Linux
+      servers over SSH: spawn, watch, get notified, reattach. Cross-vendor,
+      on your hardware.
+- [ ] **Packaged macOS app** — signed `.dmg`, no more run-from-source.
+- [ ] Smarter stuck/looping detection.
+
+**Non-goals:** an IDE, a terminal emulator, an orchestration framework,
+analytics dashboards, or any vendor-exclusive feature that breaks neutrality.
 
 ## License
 
