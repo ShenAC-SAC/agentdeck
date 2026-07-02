@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -6,6 +6,7 @@ import type { Session } from "../types";
 import { moodFor } from "../mood";
 import { workspaceName } from "../workspace";
 import { installTerminalInputOverrides } from "../terminal-input";
+import { InlineRename } from "./inline-rename";
 
 // Embedded terminal: an xterm bound to a node-pty that runs
 // `tmux -L deck attach -t <session>` in the main process. You see the agent's
@@ -17,9 +18,10 @@ export function TerminalView({
 }: {
   session: Session;
   onBack: () => void;
-  onRename: (sessionId: string, currentTitle: string) => void;
+  onRename: (sessionId: string, nextTitle: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     const bridge = window.deckpty;
@@ -76,10 +78,24 @@ export function TerminalView({
         <span className="term__face" aria-hidden>
           {mood.emoji}
         </span>
-        <span className="term__title">{session.title}</span>
-        <button className="term__rename" type="button" onClick={() => onRename(session.id, session.title)}>
-          Rename
-        </button>
+        {editing ? (
+          <InlineRename
+            className="term__rename-input"
+            value={session.title}
+            onSubmit={(next) => {
+              setEditing(false);
+              onRename(session.id, next);
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <>
+            <span className="term__title">{session.title}</span>
+            <button className="term__rename" type="button" onClick={() => setEditing(true)}>
+              Rename
+            </button>
+          </>
+        )}
         <span className="crew-card__agent">{session.agent}</span>
         <span className="term__workspace" title={session.cwd}>
           @{workspace}

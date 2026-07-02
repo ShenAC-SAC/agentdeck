@@ -1,8 +1,9 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { AgentKind } from "../types";
 import { moodFor } from "../mood";
 import type { WorkspaceGroup } from "../workspace";
 import type { AgentAvailability } from "../api";
+import { InlineRename } from "./inline-rename";
 
 export type MainView = { kind: "overview" } | { kind: "session"; id: string };
 
@@ -28,10 +29,11 @@ export function WorkspaceRail({
   onAddWorkspace: () => void;
   onRemoteShellDeferred: () => void;
   onNewTerminal: (workspace: { host: string; cwd: string }) => void;
-  onRenameTerminal: (sessionId: string, currentTitle: string) => void;
+  onRenameTerminal: (sessionId: string, nextTitle: string) => void;
   onCloseTerminal: (sessionId: string, title: string) => void;
 }) {
   const agents = availableAgents.filter((a) => a.available);
+  const [editingId, setEditingId] = useState<string | null>(null);
   return (
     <nav className="workspace-rail">
       <div className="sidebar__brand">
@@ -73,6 +75,29 @@ export function WorkspaceRail({
             <div className="workspace-group__sessions">
               {group.sessions.map((session) => {
                 const mood = moodFor(session.state);
+                if (editingId === session.id) {
+                  return (
+                    <div
+                      key={session.id}
+                      className="workspace-session workspace-session--editing"
+                      data-state={session.state}
+                      style={{ "--accent": mood.accent } as CSSProperties}
+                    >
+                      <span className="workspace-session__emoji" aria-hidden>
+                        {mood.emoji}
+                      </span>
+                      <InlineRename
+                        className="workspace-session__rename-input"
+                        value={session.title}
+                        onSubmit={(next) => {
+                          setEditingId(null);
+                          onRenameTerminal(session.id, next);
+                        }}
+                        onCancel={() => setEditingId(null)}
+                      />
+                    </div>
+                  );
+                }
                 return (
                   <div
                     key={session.id}
@@ -93,24 +118,26 @@ export function WorkspaceRail({
                       <span className="workspace-session__title">{session.title}</span>
                       <span className="workspace-session__dot" aria-hidden />
                     </button>
-                    <button
-                      className="workspace-session__rename"
-                      type="button"
-                      title={`Rename ${session.title}`}
-                      aria-label={`Rename ${session.title}`}
-                      onClick={() => onRenameTerminal(session.id, session.title)}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      className="workspace-session__close"
-                      type="button"
-                      title={`Close ${session.title}`}
-                      aria-label={`Close ${session.title}`}
-                      onClick={() => onCloseTerminal(session.id, session.title)}
-                    >
-                      ✕
-                    </button>
+                    <span className="workspace-session__actions">
+                      <button
+                        className="workspace-session__rename"
+                        type="button"
+                        title={`Rename ${session.title}`}
+                        aria-label={`Rename ${session.title}`}
+                        onClick={() => setEditingId(session.id)}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        className="workspace-session__close"
+                        type="button"
+                        title={`Close ${session.title}`}
+                        aria-label={`Close ${session.title}`}
+                        onClick={() => onCloseTerminal(session.id, session.title)}
+                      >
+                        ✕
+                      </button>
+                    </span>
                   </div>
                 );
               })}

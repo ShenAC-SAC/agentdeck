@@ -144,9 +144,10 @@ export function App() {
     await openSpawn(agent, workspace.host, workspace.cwd);
   }
 
-  async function onRenameTerminal(sessionId: string, currentTitle: string) {
-    const title = window.prompt("Terminal name", currentTitle);
-    if (title === null) return;
+  // The rail/terminal own the inline edit UI and hand us the final name.
+  async function onRenameTerminal(sessionId: string, nextTitle: string) {
+    const title = nextTitle.trim();
+    if (!title) return;
     const res = await renameSessionTitle(sessionId, title);
     if (!res.ok || !res.session) {
       setToast(res.error || "rename failed");
