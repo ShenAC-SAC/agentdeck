@@ -30,5 +30,6 @@ contextBridge.exposeInMainWorld("deckdialog", {
 
 contextBridge.exposeInMainWorld("deckapp", {
   onOpenSession: (cb) => ipcRenderer.on("open-session", (_e, id) => cb(id)),
+  onOpenHistory: (cb) => ipcRenderer.on("open-history", () => cb()),
   setOpenSession: (id) => ipcRenderer.send("app:open-session", id),
 });

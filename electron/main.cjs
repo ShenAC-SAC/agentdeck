@@ -424,7 +424,34 @@ function watchForAttention(port, targetWin) {
       while ((nl = buf.indexOf("\n\n")) !== -1) {
         const frame = buf.slice(0, nl);
         buf = buf.slice(nl + 2);
-        if (frame.startsWith(":") || frame.startsWith("event: remove")) continue;
+        if (frame.startsWith(":")) continue;
+        if (frame.startsWith("event: remove")) {
+          const line = frame.split("\n").find((l) => l.startsWith("data: "));
+          if (!line) continue;
+          let r;
+          try {
+            r = JSON.parse(line.slice(6));
+          } catch {
+            continue;
+          }
+          lastSessions = lastSessions.filter((s) => s.id !== r.id);
+          applyAttentionBadge(lastSessions);
+          const wasWorkingOrError = r.state === "working" || r.state === "error";
+          if (r.reason === "reaped" && wasWorkingOrError) {
+            const n = new Notification({
+              title: `AgentDeck · ${r.title || r.id}`,
+              body: "ended unexpectedly - resume from History",
+            });
+            n.on("click", () => {
+              if (targetWin && !targetWin.isDestroyed()) {
+                showWindow();
+                targetWin.webContents.send("open-history");
+              }
+            });
+            n.show();
+          }
+          continue;
+        }
         const line = frame.split("\n").find((l) => l.startsWith("data: "));
         if (!line) continue;
         let s;
