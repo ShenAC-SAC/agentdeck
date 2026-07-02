@@ -124,8 +124,9 @@ export function getArchived(db: Database, id: string): ArchivedRow | undefined {
 
 export function deleteArchived(db: Database, id: string): boolean {
   const r = db.query(`DELETE FROM sessions WHERE id=? AND status='archived'`).run(id);
+  if (r.changes === 0) return false; // not archived — never touch a live session's events
   db.query(`DELETE FROM session_events WHERE session_id=?`).run(id);
-  return r.changes > 0;
+  return true;
 }
 
 // On boot: mark local live rows whose id is not in the current tmux set as

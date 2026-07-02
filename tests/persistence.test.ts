@@ -105,6 +105,14 @@ test("deleteArchived removes the row and its events", () => {
   expect(d.query("SELECT COUNT(*) c FROM session_events WHERE session_id='x'").get()).toEqual({ c: 0 } as any);
 });
 
+test("deleteArchived on a LIVE session id returns false and keeps its events", () => {
+  const d = db();
+  upsertLive(d, sess({ id: "liveone", state: "working" }));
+  appendEvent(d, "liveone", 1, "working", null);
+  expect(deleteArchived(d, "liveone")).toBe(false); // not archived
+  expect((d.query("SELECT COUNT(*) c FROM session_events WHERE session_id='liveone'").get() as any).c).toBe(1);
+});
+
 test("reconcileOnBoot archives local live rows whose tmux is gone, keeps present and remote ones", () => {
   const d = db();
   upsertLive(d, sess({ id: "alive", state: "working" }));
