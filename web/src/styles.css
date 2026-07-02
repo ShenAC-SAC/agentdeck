@@ -905,7 +905,42 @@ body {
   height: 100vh;
 }
 
+/* ---- Crew face (mascot) ----------------------------------------------- */
+.crew-face {
+  display: block;
+  flex: none;
+}
+
+.crew-face__bubble {
+  transform-origin: 112px 22px;
+  animation: bubbleBreathe 1.8s ease-in-out infinite;
+}
+
+.crew-face[data-state="working"] .crew-face__lamp {
+  animation: lampGlow 2s ease-in-out infinite;
+}
+
 /* ---- Motion ----------------------------------------------------------- */
+@keyframes bubbleBreathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes lampGlow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 @keyframes cardIn {
   to {
     opacity: 1;
@@ -944,6 +979,8 @@ body {
   .crew-card[data-state="waiting"],
   .porthole--big,
   .cursor,
+  .crew-face__bubble,
+  .crew-face[data-state="working"] .crew-face__lamp,
   .toast {
     animation: none;
   }
