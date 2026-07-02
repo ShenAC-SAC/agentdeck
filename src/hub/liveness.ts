@@ -30,7 +30,7 @@ export function createLivenessSweeper(registry: Registry, events: EventEmitter, 
       if (!live.has(s.id)) {
         const removed = registry.remove(s.id);
         lastPane.delete(s.id);
-        if (removed) events.emit("remove", removed);
+        if (removed) events.emit("remove", removed, "reaped");
         continue;
       }
       if (s.state !== "working") {

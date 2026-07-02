@@ -165,7 +165,7 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
           }
         }
         const removed = registry.remove(id);
-        if (removed) events.emit("remove", removed);
+        if (removed) events.emit("remove", removed, "closed");
         return new Response("ok");
       }
 

@@ -9,7 +9,7 @@ import type { Session } from "../types";
 // reconnected. Detaches its bus listener and timer when the client disconnects.
 export function sseResponse(events: EventEmitter, registry: Registry, heartbeatMs = 20_000): Response {
   let onUpdate: (s: Session) => void = () => {};
-  let onRemove: (s: { id: string }) => void = () => {};
+  let onRemove: (s: Session, reason?: string) => void = () => {};
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -18,8 +18,17 @@ export function sseResponse(events: EventEmitter, registry: Registry, heartbeatM
       for (const s of registry.list()) send(s);
       onUpdate = send;
       events.on("update", onUpdate);
-      const sendRemove = (s: { id: string }) =>
-        controller.enqueue(enc.encode(`event: remove\ndata: ${JSON.stringify({ id: s.id })}\n\n`));
+      const sendRemove = (s: Session, reason?: string) =>
+        controller.enqueue(
+          enc.encode(
+            `event: remove\ndata: ${JSON.stringify({
+              id: s.id,
+              state: s.state,
+              title: s.title,
+              reason: reason ?? null,
+            })}\n\n`,
+          ),
+        );
       onRemove = sendRemove;
       events.on("remove", onRemove);
       heartbeat = setInterval(() => {

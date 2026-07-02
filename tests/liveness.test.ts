@@ -12,7 +12,8 @@ const s = (id: string, over: Partial<Session> = {}): Session => ({
 test("sweep removes a session whose tmux is gone and emits remove", async () => {
   const r = new Registry(); const ev = new EventEmitter();
   r.upsert(s("alive")); r.upsert(s("dead"));
-  const removed: string[] = []; ev.on("remove", (x: Session) => removed.push(x.id));
+  const removed: Array<[string, string | undefined]> = [];
+  ev.on("remove", (x: Session, reason?: string) => removed.push([x.id, reason]));
   const { sweep } = createLivenessSweeper(r, ev, {
     listLive: async () => new Set(["alive"]),
     capture: async () => "x", now: () => 0, stallMs: 90_000,
@@ -20,7 +21,7 @@ test("sweep removes a session whose tmux is gone and emits remove", async () => 
   await sweep();
   expect(r.get("dead")).toBeUndefined();
   expect(r.get("alive")).toBeDefined();
-  expect(removed).toEqual(["dead"]);
+  expect(removed).toEqual([["dead", "reaped"]]);
 });
 
 test("sweep never touches remote sessions", async () => {

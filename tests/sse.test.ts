@@ -33,7 +33,7 @@ test("SSE emits initial snapshot then live updates", async () => {
   }
 });
 
-test("SSE forwards a remove event with the session id", async () => {
+test("SSE forwards a remove event with id, state, title, and reason", async () => {
   const hub = startHub(8823);
   try {
     hub.registry.upsert(base);
@@ -42,9 +42,12 @@ test("SSE forwards a remove event with the session id", async () => {
     const dec = new TextDecoder();
     let acc = dec.decode((await reader.read()).value); // snapshot first -> start() has run
     expect(acc).toContain("sse1");
-    hub.events.emit("remove", { id: "z9" });
+    hub.events.emit("remove", { ...base, id: "z9", state: "working", title: "api" }, "reaped");
     while (!acc.includes("event: remove")) acc += dec.decode((await reader.read()).value);
     expect(acc).toContain('"id":"z9"');
+    expect(acc).toContain('"state":"working"');
+    expect(acc).toContain('"title":"api"');
+    expect(acc).toContain('"reason":"reaped"');
     await reader.cancel();
   } finally {
     hub.stop();
