@@ -1,11 +1,30 @@
 import { useState, type CSSProperties } from "react";
+import { LayoutGrid, Pencil, Plus, X } from "lucide-react";
 import type { AgentKind } from "../types";
 import { moodFor } from "../mood";
 import type { WorkspaceGroup } from "../workspace";
 import type { AgentAvailability } from "../api";
+import { CrewFace } from "./crew-face";
 import { InlineRename } from "./inline-rename";
 
 export type MainView = { kind: "overview" } | { kind: "session"; id: string };
+
+// Simplified line-art of the dock icon's anchor: brand mark and app icon
+// stay the same drawing at two levels of detail.
+function BrandAnchor() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 120 120" aria-hidden>
+      <g fill="none" stroke="var(--brass)" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="60" cy="24" r="10" strokeWidth="7" />
+        <line x1="60" y1="34" x2="60" y2="94" />
+        <line x1="38" y1="46" x2="82" y2="46" strokeWidth="8" />
+        <path d="M 22 68 Q 26 92 60 96 Q 94 92 98 68" />
+        <path d="M 22 68 L 17 57 M 22 68 L 31 60" />
+        <path d="M 98 68 L 103 57 M 98 68 L 89 60" />
+      </g>
+    </svg>
+  );
+}
 
 export function WorkspaceRail({
   groups,
@@ -37,7 +56,7 @@ export function WorkspaceRail({
   return (
     <nav className="workspace-rail">
       <div className="sidebar__brand">
-        <span className="brand__mark">⚓</span>
+        <BrandAnchor />
         <span className="sidebar__title">AgentDeck</span>
       </div>
 
@@ -47,7 +66,9 @@ export function WorkspaceRail({
         data-active={selected.kind === "overview"}
         onClick={() => onSelect({ kind: "overview" })}
       >
-        <span className="nav-item__label">⊞ Overview</span>
+        <span className="nav-item__label">
+          <LayoutGrid size={14} strokeWidth={1.75} /> Overview
+        </span>
         <span className="nav-item__count">{groups.reduce((n, g) => n + g.sessions.length, 0)}</span>
       </button>
 
@@ -68,7 +89,7 @@ export function WorkspaceRail({
                   title={`New terminal in ${group.name}`}
                   onClick={() => onNewTerminal({ host: group.host, cwd: group.cwd })}
                 >
-                  +
+                  <Plus size={13} strokeWidth={1.75} />
                 </button>
               </span>
             </div>
@@ -83,9 +104,7 @@ export function WorkspaceRail({
                       data-state={session.state}
                       style={{ "--accent": mood.accent } as CSSProperties}
                     >
-                      <span className="workspace-session__emoji" aria-hidden>
-                        {mood.emoji}
-                      </span>
+                      <CrewFace state={session.state} size={20} />
                       <InlineRename
                         className="workspace-session__rename-input"
                         value={session.title}
@@ -112,9 +131,7 @@ export function WorkspaceRail({
                       type="button"
                       onClick={() => onSelect({ kind: "session", id: session.id })}
                     >
-                      <span className="workspace-session__emoji" aria-hidden>
-                        {mood.emoji}
-                      </span>
+                      <CrewFace state={session.state} size={20} />
                       <span className="workspace-session__title">{session.title}</span>
                       <span className="workspace-session__dot" aria-hidden />
                     </button>
@@ -126,7 +143,7 @@ export function WorkspaceRail({
                         aria-label={`Rename ${session.title}`}
                         onClick={() => setEditingId(session.id)}
                       >
-                        ✎
+                        <Pencil size={13} strokeWidth={1.75} />
                       </button>
                       <button
                         className="workspace-session__close"
@@ -135,7 +152,7 @@ export function WorkspaceRail({
                         aria-label={`Close ${session.title}`}
                         onClick={() => onCloseTerminal(session.id, session.title)}
                       >
-                        ✕
+                        <X size={13} strokeWidth={1.75} />
                       </button>
                     </span>
                   </div>
@@ -159,15 +176,15 @@ export function WorkspaceRail({
           ))}
         </select>
         <button className="spawn__btn" type="button" onClick={onAddWorkspace}>
-          ＋ Add workspace
+          <Plus size={14} strokeWidth={2} /> Add workspace
         </button>
         <button
           className="workspace-rail__remote"
           type="button"
           onClick={onRemoteShellDeferred}
-          title="Remote shell will be enabled after a real SSH target flow is designed"
+          title="Remote hosts arrive with M2 - needs a real SSH target flow first"
         >
-          Remote shell later
+          Remote hosts · soon
         </button>
       </div>
     </nav>
