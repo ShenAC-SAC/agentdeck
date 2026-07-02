@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { ArrowLeft, Pencil } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 import type { Session } from "../types";
 import { moodFor } from "../mood";
 import { workspaceName } from "../workspace";
 import { installTerminalInputOverrides } from "../terminal-input";
 import { InlineRename } from "./inline-rename";
+import { CrewFace } from "./crew-face";
+import { AgentMark } from "./agent-mark";
 
 // Embedded terminal: an xterm bound to a node-pty that runs
 // `tmux -L deck attach -t <session>` in the main process. You see the agent's
@@ -33,10 +36,10 @@ export function TerminalView({
       fontSize: 13,
       cursorBlink: true,
       theme: {
-        background: "#14100c",
-        foreground: "#f4ead9",
+        background: "#081018",
+        foreground: "#e8eef2",
         cursor: "#e2a54c",
-        selectionBackground: "#3a2d21",
+        selectionBackground: "#1e3446",
       },
     });
     const fit = new FitAddon();
@@ -73,11 +76,9 @@ export function TerminalView({
     <section className="term">
       <header className="term__bar">
         <button className="term__back" type="button" onClick={onBack}>
-          ← Deck
+          <ArrowLeft size={14} strokeWidth={1.75} /> Deck
         </button>
-        <span className="term__face" aria-hidden>
-          {mood.emoji}
-        </span>
+        <CrewFace state={session.state} size={24} />
         {editing ? (
           <InlineRename
             className="term__rename-input"
@@ -89,16 +90,26 @@ export function TerminalView({
             onCancel={() => setEditing(false)}
           />
         ) : (
-          <>
+          <span className="term__crumb" title={session.cwd}>
+            <span className="term__crumb-ws">{workspace}</span>
+            <span className="term__crumb-sep">›</span>
             <span className="term__title">{session.title}</span>
-            <button className="term__rename" type="button" onClick={() => setEditing(true)}>
-              Rename
+            <button
+              className="term__rename"
+              type="button"
+              title="Rename session"
+              aria-label="Rename session"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil size={13} strokeWidth={1.75} />
             </button>
-          </>
+          </span>
         )}
-        <span className="crew-card__agent">{session.agent}</span>
-        <span className="term__workspace" title={session.cwd}>
-          @{workspace}
+        <span className="term__agent">
+          <AgentMark agent={session.agent} size={13} /> {session.agent}
+        </span>
+        <span className="term__state" data-state={session.state}>
+          {mood.label}
         </span>
       </header>
       <div className="term__screen" ref={hostRef} />
