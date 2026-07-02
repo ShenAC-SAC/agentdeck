@@ -57,7 +57,7 @@ The state model is intentionally small:
 ## Quickstart
 
 ```bash
-git clone https://github.com/AochenShen99/agentdeck.git
+git clone https://github.com/ShenAC-SAC/agentdeck.git
 cd agentdeck
 bun install
 ```
