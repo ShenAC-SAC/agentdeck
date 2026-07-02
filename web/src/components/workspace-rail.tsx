@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from "react";
-import { History as HistoryIcon, LayoutGrid, Pencil, Plus, X } from "lucide-react";
+import { LayoutGrid, Pencil, Plus, X } from "lucide-react";
 import type { AgentKind } from "../types";
 import { moodFor } from "../mood";
 import type { WorkspaceGroup } from "../workspace";
@@ -7,7 +7,7 @@ import type { AgentAvailability } from "../api";
 import { CrewFace } from "./crew-face";
 import { InlineRename } from "./inline-rename";
 
-export type MainView = { kind: "overview" } | { kind: "session"; id: string } | { kind: "history" };
+export type MainView = { kind: "overview" } | { kind: "session"; id: string };
 
 // Simplified line-art of the dock icon's anchor: brand mark and app icon
 // stay the same drawing at two levels of detail.
@@ -70,17 +70,6 @@ export function WorkspaceRail({
           <LayoutGrid size={14} strokeWidth={1.75} /> Overview
         </span>
         <span className="nav-item__count">{groups.reduce((n, g) => n + g.sessions.length, 0)}</span>
-      </button>
-
-      <button
-        type="button"
-        className="nav-item workspace-rail__history"
-        data-active={selected.kind === "history"}
-        onClick={() => onSelect({ kind: "history" })}
-      >
-        <span className="nav-item__label">
-          <HistoryIcon size={14} strokeWidth={1.75} /> History
-        </span>
       </button>
 
       <div className="workspace-rail__groups">

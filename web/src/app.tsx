@@ -12,7 +12,6 @@ import {
 import type { AgentKind, Session, SessionState } from "./types";
 import { TerminalView } from "./components/terminal-view";
 import { WorkspaceRail, type MainView } from "./components/workspace-rail";
-import { HistoryView } from "./components/history-view";
 import { SessionRow } from "./components/session-row";
 import { CrewFace } from "./components/crew-face";
 import { attentionItems, type AttentionKind } from "./attention";
@@ -120,7 +119,7 @@ export function App() {
   // Under Electron, selecting a session opens its embedded terminal; in a plain
   // browser there is no pty, so fall back to the tmux jump.
   async function onSelect(v: MainView) {
-    if (v.kind !== "session") {
+    if (v.kind === "overview") {
       setView(v);
       return;
     }
@@ -220,8 +219,6 @@ export function App() {
               <p className="muted">connecting to session…</p>
             </div>
           )
-        ) : view.kind === "history" ? (
-          <HistoryView onResumed={(id) => setView({ kind: "session", id })} />
         ) : (
           <>
             <header className="main__bar">
