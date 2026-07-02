@@ -100,6 +100,15 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         }
       }
 
+      const activityMatch = req.method === "POST" ? url.pathname.match(/^\/sessions\/([^/]+)\/activity$/) : null;
+      if (activityMatch) {
+        const id = decodeURIComponent(activityMatch[1]);
+        const updated = registry.applyEvent({ type: "turn-start", sessionId: id, at: Date.now() });
+        if (!updated) return new Response("unknown session", { status: 404 });
+        events.emit("update", updated);
+        return Response.json(updated);
+      }
+
       const renameMatch = req.method === "PATCH" ? url.pathname.match(/^\/sessions\/([^/]+)\/title$/) : null;
       if (renameMatch) {
         const id = decodeURIComponent(renameMatch[1]);

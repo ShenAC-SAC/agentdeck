@@ -130,6 +130,22 @@ test("PATCH /sessions/:id/title rejects empty and unknown titles", async () => {
   }
 });
 
+test("POST /sessions/:id/activity marks an idle session working and emits", async () => {
+  const hub = startHub(8824);
+  try {
+    hub.registry.upsert({ ...base, id: "active", state: "idle", lastSummaryLine: "ready" });
+    const got = new Promise<Session>((res) => hub.events.once("update", res));
+    const res = await fetch("http://localhost:8824/sessions/active/activity", { method: "POST" });
+    expect(res.status).toBe(200);
+    const s = await Promise.race([got, new Promise<undefined>((res) => setTimeout(() => res(undefined), 100))]);
+    expect(s?.state).toBe("working");
+    expect(s?.lastSummaryLine).toBe("ready");
+    expect(hub.registry.get("active")?.state).toBe("working");
+  } finally {
+    hub.stop();
+  }
+});
+
 async function killSpawnedSession(res: Response): Promise<void> {
   if (!res.ok) return;
   const spawned = (await res.json().catch(() => ({}))) as { id?: string };

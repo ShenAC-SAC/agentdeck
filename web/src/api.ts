@@ -59,6 +59,10 @@ export async function renameSessionTitle(
   return { ok: true, session: (await res.json()) as Session };
 }
 
+export async function markSessionActivity(sessionId: string): Promise<void> {
+  await fetch(`/sessions/${encodeURIComponent(sessionId)}/activity`, { method: "POST" });
+}
+
 export async function closeSession(id: string): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
   return res.ok ? { ok: true } : { ok: false, error: await res.text() };

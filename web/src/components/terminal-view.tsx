@@ -3,9 +3,11 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { ArrowLeft, Pencil } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
+import { markSessionActivity } from "../api";
 import type { Session } from "../types";
 import { moodFor } from "../mood";
 import { workspaceName } from "../workspace";
+import { isTerminalSubmit } from "../terminal-activity";
 import { installTerminalInputOverrides } from "../terminal-input";
 import { InlineRename } from "./inline-rename";
 import { CrewFace } from "./crew-face";
@@ -51,8 +53,12 @@ export function TerminalView({
     void bridge.open(id, session.tmuxTarget, session.host, term.cols, term.rows);
     const offData = bridge.onData(id, (d) => term.write(d));
     const offExit = bridge.onExit(id, () => term.write("\r\n\x1b[2m[session detached]\x1b[0m\r\n"));
-    installTerminalInputOverrides(term, (data) => bridge.write(id, data), session.agent);
-    const input = term.onData((d) => bridge.write(id, d));
+    const writeInput = (data: string) => {
+      bridge.write(id, data);
+      if (isTerminalSubmit(data)) void markSessionActivity(id);
+    };
+    installTerminalInputOverrides(term, writeInput, session.agent);
+    const input = term.onData(writeInput);
     const onResize = () => {
       fit.fit();
       bridge.resize(id, term.cols, term.rows);
