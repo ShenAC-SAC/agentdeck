@@ -32,13 +32,6 @@
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-
-  /* legacy aliases — removed in the cleanup task once no rule references them */
-  --ink: var(--bg-0);
-  --ink-2: var(--bg-1);
-  --sidebar: var(--panel);
-  --surface: var(--panel);
-  --surface-hi: var(--panel-hi);
 }
 
 * {
