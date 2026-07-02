@@ -7,6 +7,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
+const { nextAttentionBadge } = require("./attention-badge.cjs");
 
 const PORT = Number(process.env.DECK_PORT || 8799);
 const URL = `http://localhost:${PORT}/`;
@@ -27,6 +28,9 @@ let win = null;
 let tray = null;
 let pollTimer = null;
 let attentionStop = null;
+let openSessionId = null;
+let lastSessions = [];
+let seenAttention = new Map();
 app.isQuitting = false;
 
 // node-pty (native, rebuilt for Electron) powers the embedded terminals.
@@ -111,6 +115,13 @@ function setupDialog() {
       properties: ["openDirectory", "createDirectory"],
     });
     return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
+  });
+}
+
+function setupAppBridge() {
+  ipcMain.on("app:open-session", (_e, id) => {
+    openSessionId = typeof id === "string" && id.length > 0 ? id : null;
+    applyAttentionBadge(lastSessions);
   });
 }
 
@@ -366,14 +377,35 @@ function createAppMenu() {
 
 // Reflect the waiting count in the menu bar + dock so you can glance without
 // the window open.
+function upsertLastSession(session) {
+  const next = lastSessions.filter((s) => s.id !== session.id);
+  next.push(session);
+  lastSessions = next;
+}
+
+function applyAttentionBadge(sessions) {
+  const focused = Boolean(win && !win.isDestroyed() && win.isFocused());
+  const result = nextAttentionBadge(seenAttention, sessions, openSessionId, focused);
+  seenAttention = result.seen;
+  const unread = result.unread;
+  if (tray) {
+    tray.setTitle(unread > 0 ? String(unread) : "");
+    tray.setToolTip(unread > 0 ? `AgentDeck · ${unread} need you` : "AgentDeck");
+  }
+  if (app.dock) app.dock.setBadge(unread > 0 ? String(unread) : "");
+}
+
 async function refreshBadge() {
   try {
     const sessions = await (await fetch(`${URL}sessions`)).json();
-    const waiting = sessions.filter((s) => s.state === "waiting").length;
-    if (tray) tray.setToolTip(waiting > 0 ? `AgentDeck · ${waiting} need you` : "AgentDeck");
-    if (app.dock) app.dock.setBadge(waiting > 0 ? String(waiting) : "");
+    lastSessions = sessions;
+    applyAttentionBadge(lastSessions);
   } catch {
-    if (tray) tray.setToolTip("AgentDeck");
+    if (tray) {
+      tray.setTitle("");
+      tray.setToolTip("AgentDeck");
+    }
+    if (app.dock) app.dock.setBadge("");
   }
 }
 
@@ -406,6 +438,8 @@ function watchForAttention(port, targetWin) {
         const was = prev.get(s.id);
         prev.set(s.id, key);
         const isAttention = attention.has(s.state) || stalled;
+        upsertLastSession(s);
+        applyAttentionBadge(lastSessions);
         if (isAttention && was !== key) {
           const n = new Notification({
             title: `AgentDeck · ${s.title}`,
@@ -413,7 +447,9 @@ function watchForAttention(port, targetWin) {
           });
           n.on("click", () => {
             if (targetWin && !targetWin.isDestroyed()) {
+              openSessionId = s.id;
               showWindow();
+              applyAttentionBadge(lastSessions);
               targetWin.webContents.send("open-session", s.id);
             }
           });
@@ -461,8 +497,11 @@ app.whenReady().then(async () => {
 
   setupPty();
   setupDialog();
+  setupAppBridge();
   createTray();
   createWindow();
+  win.on("focus", () => applyAttentionBadge(lastSessions));
+  win.on("show", () => applyAttentionBadge(lastSessions));
   await waitForWindowLoad();
 
   if (SHOT) {

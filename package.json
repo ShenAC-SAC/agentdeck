@@ -14,8 +14,9 @@
     "deck": "bun bin/deck.tsx",
     "web:dev": "vite",
     "web:build": "vite build",
-    "app": "bun run web:build && electron .",
-    "app:smoke": "DECK_SMOKE=1 electron ."
+    "electron:dev": "node electron/dev-launch.cjs",
+    "app": "bun run web:build && bun run electron:dev",
+    "app:smoke": "DECK_SMOKE=1 bun run electron:dev"
   },
   "dependencies": {
     "@fontsource/fraunces": "^5.2.9",

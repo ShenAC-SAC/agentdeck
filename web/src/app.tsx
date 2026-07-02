@@ -38,6 +38,13 @@ export function App() {
   ]);
   const [toast, setToast] = useState("");
 
+  const deckapp = (window as unknown as {
+    deckapp?: {
+      onOpenSession: (cb: (id: string) => void) => void;
+      setOpenSession?: (id: string | null) => void;
+    };
+  }).deckapp;
+
   // Shot/deep-link mode: ?open=<id> jumps straight into a session's terminal.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("open");
@@ -46,9 +53,12 @@ export function App() {
 
   // Under Electron, clicking a native notification opens that session.
   useEffect(() => {
-    const api = (window as unknown as { deckapp?: { onOpenSession: (cb: (id: string) => void) => void } }).deckapp;
-    api?.onOpenSession((id) => setView({ kind: "session", id }));
-  }, []);
+    deckapp?.onOpenSession((id) => setView({ kind: "session", id }));
+  }, [deckapp]);
+
+  useEffect(() => {
+    deckapp?.setOpenSession?.(view.kind === "session" ? view.id : null);
+  }, [deckapp, view]);
 
   useEffect(() => {
     let alive = true;

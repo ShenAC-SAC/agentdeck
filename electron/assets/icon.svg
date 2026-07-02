@@ -25,7 +25,6 @@
       <rect x="48" y="48" width="928" height="928" rx="208"/>
     </clipPath>
   </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
   <rect x="48" y="48" width="928" height="928" rx="208" fill="url(#bg)"/>
   <g clip-path="url(#squircle)">
     <rect x="48" y="48" width="928" height="928" fill="url(#halo)"/>

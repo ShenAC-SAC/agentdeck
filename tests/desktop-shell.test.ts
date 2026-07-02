@@ -1,5 +1,16 @@
 import { expect, test } from "bun:test";
+import { createRequire } from "node:module";
 import { inflateSync } from "node:zlib";
+
+const require = createRequire(import.meta.url);
+const { nextAttentionBadge } = require("../electron/attention-badge.cjs") as {
+  nextAttentionBadge: (
+    seen: Map<string, string>,
+    sessions: Array<{ id: string; state: string; lastActivityAt: number; staleSince?: number | null }>,
+    openSessionId?: string | null,
+    focused?: boolean,
+  ) => { unread: number; seen: Map<string, string> };
+};
 
 test("package exposes the AgentDeck product name", async () => {
   const pkg = JSON.parse(await Bun.file("package.json").text()) as { productName?: string };
@@ -11,15 +22,60 @@ test("desktop shell uses a tray image and activate-to-show behavior", async () =
   expect(main).toContain("TRAY_ICON_PATH");
   expect(main).toContain("new Tray(");
   expect(main).not.toContain("nativeImage.createEmpty()");
-  expect(main).not.toContain('tray.setTitle("⚓")');
+  expect(main).not.toContain("⚓");
+  expect(main).toContain("tray.setTitle(unread > 0 ? String(unread) : \"\")");
   expect(main).toContain('app.on("activate"');
 });
 
-test("dock icon png does not have an opaque white frame", async () => {
+test("dev app launcher brands the macOS bundle as AgentDeck", async () => {
+  const pkg = JSON.parse(await Bun.file("package.json").text()) as { scripts?: Record<string, string> };
+  const launcher = await Bun.file("electron/dev-launch.cjs").text();
+  expect(pkg.scripts?.app).toContain("electron:dev");
+  expect(pkg.scripts?.["electron:dev"]).toContain("electron/dev-launch.cjs");
+  expect(launcher).toContain("AgentDeck.app");
+  expect(launcher).toContain("verbatimSymlinks: true");
+  expect(launcher).toContain("Contents\", \"MacOS\", \"Electron\"");
+  expect(launcher).toContain("CFBundleDisplayName");
+  expect(launcher).toContain("com.agentdeck.dev");
+});
+
+test("dock icon png has a transparent outside corner", async () => {
   const png = await Bun.file("electron/assets/icon.png").arrayBuffer();
   const pixel = firstPixelRGBA(new Uint8Array(png));
-  const opaqueWhite = pixel[0] > 245 && pixel[1] > 245 && pixel[2] > 245 && pixel[3] > 245;
-  expect(opaqueWhite).toBe(false);
+  expect(pixel[3]).toBe(0);
+});
+
+test("frontmost open attention is seen but remains an attention state", () => {
+  const s = { id: "s1", state: "waiting", lastActivityAt: 10 };
+  const result = nextAttentionBadge(new Map(), [s], "s1", true);
+  expect(result.unread).toBe(0);
+  expect(result.seen.has("s1")).toBe(true);
+  expect(s.state).toBe("waiting");
+});
+
+test("background attention remains unread until the open session is focused", () => {
+  const first = nextAttentionBadge(
+    new Map(),
+    [
+      { id: "s1", state: "waiting", lastActivityAt: 10 },
+      { id: "s2", state: "waiting", lastActivityAt: 20 },
+    ],
+    "s1",
+    false,
+  );
+  expect(first.unread).toBe(2);
+
+  const focused = nextAttentionBadge(first.seen, [
+    { id: "s1", state: "waiting", lastActivityAt: 10 },
+    { id: "s2", state: "waiting", lastActivityAt: 20 },
+  ], "s1", true);
+  expect(focused.unread).toBe(1);
+});
+
+test("a later handoff for a seen session becomes unread again", () => {
+  const seen = nextAttentionBadge(new Map(), [{ id: "s1", state: "waiting", lastActivityAt: 10 }], "s1", true);
+  const later = nextAttentionBadge(seen.seen, [{ id: "s1", state: "waiting", lastActivityAt: 99 }], "other", true);
+  expect(later.unread).toBe(1);
 });
 
 function firstPixelRGBA(bytes: Uint8Array): [number, number, number, number] {
