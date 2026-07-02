@@ -10,17 +10,23 @@ import {
   type AgentAvailability,
 } from "./api";
 import type { AgentKind, Session, SessionState } from "./types";
-import { CrewCard } from "./components/crew-card";
 import { TerminalView } from "./components/terminal-view";
 import { WorkspaceRail, type MainView } from "./components/workspace-rail";
-import { AttentionPanel } from "./components/attention-panel";
-import { attentionItems } from "./attention";
+import { SessionRow } from "./components/session-row";
+import { CrewFace } from "./components/crew-face";
+import { attentionItems, type AttentionKind } from "./attention";
 import { pickFolder } from "./host";
 import { hasPty } from "./pty";
 import { groupByWorkspace } from "./workspace";
 
 // Attention first: waiting/error rise to the top, resting sinks to the bottom.
 const ORDER: Record<SessionState, number> = { waiting: 0, error: 1, working: 2, idle: 3 };
+
+const ATTENTION_TEXT: Record<AttentionKind, string> = {
+  waiting: "Needs you",
+  error: "Errored",
+  stalled: "Stalled",
+};
 
 export function App() {
   const [sessions, setSessions] = useState<Map<string, Session>>(new Map());
@@ -95,7 +101,10 @@ export function App() {
 
   const groups = useMemo(() => groupByWorkspace(all), [all]);
   const attention = useMemo(() => attentionItems(all), [all]);
-  const waiting = all.filter((s) => s.state === "waiting").length;
+  // The overview pins attention sessions on top; don't repeat them below.
+  const needyIds = useMemo(() => new Set(attention.map((i) => i.session.id)), [attention]);
+  const calm = useMemo(() => all.filter((s) => !needyIds.has(s.id)), [all, needyIds]);
+  const overviewGroups = useMemo(() => groupByWorkspace(calm), [calm]);
 
   // Under Electron, selecting a session opens its embedded terminal; in a plain
   // browser there is no pty, so fall back to the tmux jump.
@@ -202,18 +211,15 @@ export function App() {
           )
         ) : (
           <>
-            <AttentionPanel items={attention} onOpen={(id) => onSelect({ kind: "session", id })} />
             <header className="main__bar">
               <div>
                 <h1 className="main__title">Overview</h1>
                 <p className="main__sub">
-                  {all.length} crew{" "}
-                  {waiting > 0 ? (
-                    <>
-                      · <span className="hot">{waiting} waiting</span>
-                    </>
+                  {all.length} crew ·{" "}
+                  {attention.length > 0 ? (
+                    <span className="hot">{attention.length} need you</span>
                   ) : (
-                    <>· all steady</>
+                    <>all steady — you can walk away</>
                   )}
                 </p>
               </div>
@@ -221,16 +227,44 @@ export function App() {
 
             {all.length === 0 ? (
               <div className="empty">
-                <div className="porthole porthole--big" aria-hidden>
-                  <span className="porthole__face">🫧</span>
-                </div>
-                <p className="empty__lead">No crew here yet.</p>
-                <p className="muted">Spawn a session to bring someone on deck.</p>
+                <CrewFace state="idle" size={96} />
+                <p className="empty__lead">No crew on deck yet.</p>
+                <p className="muted">Spawn a session to bring someone aboard.</p>
               </div>
             ) : (
-              <main className="grid">
-                {all.map((s, i) => (
-                  <CrewCard key={s.id} session={s} index={i} onJump={(id) => onSelect({ kind: "session", id })} />
+              <main className="deck">
+                {attention.length > 0 ? (
+                  <section className="session-group session-group--attention">
+                    <h2 className="session-group__title">Needs you</h2>
+                    {attention.map(({ session, kind }, i) => (
+                      <SessionRow
+                        key={session.id}
+                        session={session}
+                        index={i}
+                        kindLabel={ATTENTION_TEXT[kind]}
+                        onOpen={(id) => onSelect({ kind: "session", id })}
+                        onRename={onRenameTerminal}
+                        onClose={onCloseTerminal}
+                      />
+                    ))}
+                  </section>
+                ) : null}
+                {overviewGroups.map((group) => (
+                  <section key={group.key} className="session-group">
+                    <h2 className="session-group__title" title={group.cwd}>
+                      {group.hostName} · {group.name}
+                    </h2>
+                    {group.sessions.map((s, i) => (
+                      <SessionRow
+                        key={s.id}
+                        session={s}
+                        index={i}
+                        onOpen={(id) => onSelect({ kind: "session", id })}
+                        onRename={onRenameTerminal}
+                        onClose={onCloseTerminal}
+                      />
+                    ))}
+                  </section>
                 ))}
               </main>
             )}
