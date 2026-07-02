@@ -1,83 +1,120 @@
-# ⚓ AgentDeck
+# AgentDeck
 
-**One deck for every coding agent.** See who's working, who's stuck, and who needs you — across Claude Code, Codex, opencode, and plain shells — from a single control plane.
+One deck for every coding agent.
 
-> **Status:** early / alpha. macOS-first. Local sessions only (remote hosts are on the roadmap). Expect rough edges.
+If your day has turned into five terminal windows, a few agent CLIs, and constant context switching just to see who finished, who got stuck, and who is asking for approval, AgentDeck is for that moment. It gives you one quiet bridge for your agent crew: start work, walk away, and come back when something actually needs judgment.
+
+Remote attach is not ready yet, but the product direction is the same pain: stop bouncing between local windows, tmux panes, and SSH boxes just to poll whether an agent needs you.
+
+> **Status:** early alpha. macOS-first. Local sessions only for now; remote hosts are on the roadmap. Run from source today. A packaged macOS release is planned, but there is no `.dmg` yet.
 
 ![AgentDeck overview](docs/media/overview.png)
 
-## Why
+The screenshot is a temporary product capture. A polished promotional image will replace it later.
 
-You can *run* six coding agents at once. You can't *watch* six at once. Each one lives in its own terminal, quietly finishing, quietly blocking on a permission prompt, or quietly going in circles — and you find out only when you tab over to check.
+## What AgentDeck Does
 
-AgentDeck raises your **attention ceiling**: instead of babysitting two or three agents by staring at them, you manage six or eight **by exception**. It watches all of them and surfaces the one judgment that matters — *who needs you right now* — so you can start work and actually walk away until it pings you.
+- **One deck for many agents**: Claude Code, Codex, opencode, and plain shell sessions appear in the same workspace-aware dashboard.
+- **Needs-you triage**: completed turns, approvals, questions, and blocked sessions rise to the top so you do not have to babysit every terminal.
+- **Unread attention badges**: the macOS tray and Dock badge show attention you have not looked at yet. Opening a session can clear the badge without erasing the session's `Needs you` state.
+- **Embedded terminals**: open a session inline and continue typing without hunting for the original terminal window.
+- **Liveness checks**: missing tmux sessions are removed, and quiet long-running sessions can be marked as stale.
+- **Workspace grouping**: sessions from the same repo stay together, so a multi-agent workflow is easier to scan.
 
-It's a **neutral** control plane. It doesn't care which vendor's agent you run; it treats Claude Code, Codex, opencode, and a bare shell the same way. No agent gets promoted over another.
+## Current Limits
 
-## What it does
+- macOS is the primary target.
+- Sessions run locally in a private tmux socket (`tmux -L deck`).
+- Remote host UI is present as a direction, but remote agent mode is not ready.
+- The desktop app runs from source through the repo's Electron dependency.
+- No signed `.dmg`, notarization, auto-update, or installer flow yet.
 
-- **Unified deck** — every session as a card: agent, workspace, state (working / waiting / resting / error), and last message.
-- **Attention triage** — a "who needs you" panel ranks blocked and waiting agents first and lets you jump straight to one; when nothing needs you it says so ("All steady — you can walk away").
-- **Liveness you can trust** — dead sessions are reaped automatically (no ghost cards), and an agent whose terminal has gone silent while "working" gets flagged as possibly stuck.
-- **Embedded terminals** — open any session inline and type straight into it; no window-hopping.
-- **Native notifications** — get pinged (clickable → jumps to the session) only for real blocks, not for an agent that simply finished.
-- **Per-workspace grouping** — sessions are grouped by the project directory they run in, so one repo's agents sit together.
+## How It Works
 
-## How it works
+AgentDeck is an external observer, not a replacement agent runtime.
 
-AgentDeck is an **external observer**, not a wrapper. It never touches an agent's internals:
+- A Bun hub stores session state and serves HTTP/SSE.
+- Agent sessions run in tmux, so they survive the UI.
+- Claude Code and Codex hooks map native events into a shared state machine.
+- Terminal-output heuristics provide a fallback signal for generic shells.
+- React renders the dashboard.
+- Electron adds the macOS app shell, tray/Dock badges, native notifications, and embedded terminals through `node-pty`.
 
-- A small **hub** (Bun) holds the source of truth: a registry + state machine.
-- Sessions run in **tmux** on a private socket (`tmux -L deck`), so they survive the UI and each other.
-- State comes from each agent's observable footprint: **hooks/notifications** (Claude Code, Codex), a universal **`capturePane`** fallback, and the shared **filesystem/git** of the workspace as the join key.
-- A **web dashboard** (React) and an **Electron desktop app** render the same hub over SSE.
+The state model is intentionally small:
+
+- `Working`: the user sent work and the session is active.
+- `Needs you`: the agent reached a handoff, completion, approval, or question.
+- `Resting`: no active handoff.
+- `Error`: something failed.
 
 ## Requirements
 
-- **macOS** (native notifications and the embedded terminal are mac-focused today)
-- [**Bun**](https://bun.sh)
-- **tmux** (3.x)
-- For the desktop app, the repo's bundled **Electron** + **node-pty** (installed via `bun install`)
+- macOS
+- [Bun](https://bun.sh)
+- tmux 3.x
+- Optional agent CLIs: Claude Code, Codex, opencode
 
 ## Quickstart
 
 ```bash
-git clone <your-fork-url> agentdeck
+git clone https://github.com/AochenShen99/agentdeck.git
 cd agentdeck
 bun install
+```
 
-# Desktop app (recommended):
+Launch the desktop app:
+
+```bash
 bun run app
+```
 
-# …or the web dashboard + headless hub:
-bun run deck gui
+Or run the CLI/TUI:
 
-# …or the terminal UI:
+```bash
 bun run deck
 ```
 
-Spawn and inspect sessions from the CLI (a hub must be running):
+Useful commands while the hub is running:
 
 ```bash
-bun run deck new claude-code   # start a Claude Code session
-bun run deck new codex         # …or Codex, opencode, generic
-bun run deck ls                # list sessions and their states
+bun run deck new claude-code
+bun run deck new codex
+bun run deck new opencode
+bun run deck new generic
+bun run deck ls
 ```
 
 ## Development
 
 ```bash
-bun test              # test suite
-bun run typecheck     # tsc (root, no DOM) + web (DOM)
-bun run web:build     # build the web bundle
+bun test
+bun run typecheck
+bun run web:build
+bun run app:smoke
 ```
+
+Before running the full test suite, stop any running dev app that is listening on port `8799`.
+
+## Release Plan
+
+The first public version is a GitHub preview intended for source-based use. A real macOS release should come later, after the packaging path is verified:
+
+- Electron packaging choice
+- app signing
+- notarization
+- `.dmg` or zip distribution
+- upgrade story
+
+Until then, the recommended install path is `git clone` + `bun install` + `bun run app`.
 
 ## Roadmap
 
-- **Remote hosts** — attach agents running over SSH.
-- **Ledger** — durable cross-agent history: archive finished sessions, resume (`claude --resume` / `codex resume`).
-- **Cross-agent signals** — collision detection ("two agents just edited `auth.ts`"), stuck/looping detection, review-risk.
-- **Packaging** — a signed `.dmg`.
+- Remote hosts over SSH.
+- Packaged macOS app.
+- Durable run history and session archive.
+- Resume support for agent CLIs that expose it.
+- Cross-agent collision signals, such as two agents touching the same files.
+- Better stuck/looping detection.
 
 ## License
 
