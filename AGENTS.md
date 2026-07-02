@@ -17,7 +17,7 @@ Core runtime code lives under `src/`:
 - `src/adapters/`: maps agent-specific hook payloads into generic events. Claude Code and Codex get explicit adapters; `heuristic.ts` is the fallback for terminal-output changes.
 - `src/tmux/`: private tmux socket integration (`tmux -L deck`), spawn args, metadata, and parsing.
 - `src/agents/availability.ts`: local CLI detection.
-- `src/remote/ssh.ts`: early remote shell helpers. Remote agent mode is intentionally not enabled yet.
+- `src/remote/`: remote live-control primitives. `ssh.ts` has the original SSH shell/attach helpers, `hosts.ts` parses `~/.ssh/config`, `connection.ts` builds/reuses ControlMaster SSH transport, `report.ts` builds the dumb remote reporter contract, `ingest.ts` turns pulled tmux rows into local registry updates via existing adapters, and `poller.ts` owns the per-host pull loop.
 - `src/types.ts`: shared session and agent types.
 
 Frontend code lives under `web/src/`:
@@ -44,7 +44,10 @@ Electron-specific behavior:
 - `idle` / "Resting": a fresh or inactive session with no current handoff.
 - `error`: adapter or runtime failure state.
 - Stale working sessions are derived from liveness, not from agent state.
-- Remote hosts are visible as a product direction, but remote agent mode is not ready.
+- Remote live control is staged. Backend primitives for host discovery, ControlMaster transport, raw remote event reporting, local ingest, and the per-host poller exist. Hub routes, cross-vendor remote spawn, web rail affordances, and embedded remote attach are follow-up work unless the current branch implements them.
+- Remote reaping has one hard safety rule: reap only after a successful remote `list-sessions` pull that omits the session. A failed SSH pull, timeout, or unreachable host must never remove/archive/notify as if sessions died.
+- Remote event mapping stays local. The remote reporter stores raw payloads in tmux options; local code must reuse `mapClaudeHook` and `mapCodexNotify` instead of rebuilding parser/state logic on the server.
+- Remote v1 must stay cross-vendor in design: Claude Code, Codex, opencode, and shell are all first-day targets. Do not let remote work collapse into a Claude-only path unless the requested scope explicitly says so.
 
 ## Commands
 
