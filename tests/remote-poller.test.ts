@@ -34,3 +34,52 @@ test("a FAILED poll (listSessions -> null) reaps nothing and marks unreachable",
   expect(registry.get("deck_1")).toBeUndefined();
   expect(poller.reachable()).toBe(true);
 });
+
+test("a thrown poll failure reaps nothing and marks unreachable", async () => {
+  const registry = new Registry();
+  const bus = new EventEmitter();
+  registry.upsert({
+    id: "deck_1",
+    agent: "claude-code",
+    title: "api",
+    tmuxTarget: "deck_1:0.0",
+    cwd: "/repo",
+    host: "devbox",
+    state: "working",
+    lastActivityAt: 0,
+    lastSummaryLine: "",
+  });
+  const poller = createRemotePoller(registry, bus, "devbox", {
+    listSessions: async () => {
+      throw new Error("ssh timed out");
+    },
+  });
+
+  await poller.pollOnce();
+
+  expect(registry.get("deck_1")).toBeDefined();
+  expect(poller.reachable()).toBe(false);
+});
+
+test("pollOnce does not start overlapping list-sessions calls", async () => {
+  const registry = new Registry();
+  const bus = new EventEmitter();
+  let calls = 0;
+  let release!: (out: string) => void;
+  const pending = new Promise<string>((resolve) => {
+    release = resolve;
+  });
+  const poller = createRemotePoller(registry, bus, "devbox", {
+    listSessions: async () => {
+      calls += 1;
+      return pending;
+    },
+  });
+
+  const first = poller.pollOnce();
+  const second = poller.pollOnce();
+  await Promise.resolve();
+  expect(calls).toBe(1);
+  release("");
+  await Promise.all([first, second]);
+});

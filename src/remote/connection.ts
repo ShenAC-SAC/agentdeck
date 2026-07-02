@@ -11,15 +11,76 @@ export function masterArgs(alias: string): string[] {
 }
 
 export function sshArgs(alias: string, remoteCommand: string): string[] {
-  return ["-o", `ControlPath=${controlPath(alias)}`, alias, remoteCommand];
+  return ["-o", "ControlMaster=auto", "-o", `ControlPath=${controlPath(alias)}`, alias, remoteCommand];
 }
 
 const masters = new Map<string, ReturnType<typeof Bun.spawn>>();
+const DEFAULT_TIMEOUT_MS = 15_000;
+
+function checkMasterArgs(alias: string): string[] {
+  return ["-O", "check", "-o", `ControlPath=${controlPath(alias)}`, alias];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runSsh(args: string[], timeoutMs: number): Promise<{ ok: boolean; stdout: string; error?: string }> {
+  const proc = Bun.spawn(["ssh", ...args], { stdout: "pipe", stderr: "pipe" });
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try {
+      proc.kill();
+    } catch {
+      // Process may already have exited.
+    }
+  }, timeoutMs);
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]).finally(() => clearTimeout(timer));
+  if (timedOut) return { ok: false, stdout, error: `ssh timed out after ${timeoutMs}ms` };
+  return code === 0 ? { ok: true, stdout } : { ok: false, stdout, error: stderr.trim() || `ssh exited ${code}` };
+}
 
 export async function ensureMaster(alias: string): Promise<void> {
-  if (masters.has(alias)) return;
+  const existing = masters.get(alias);
+  if (existing) {
+    const check = await runSsh(checkMasterArgs(alias), 1_000);
+    if (check.ok) return;
+    try {
+      existing.kill();
+    } catch {
+      // The cached master is already dead or unusable; replace it below.
+    }
+    masters.delete(alias);
+  }
   const proc = Bun.spawn(["ssh", ...masterArgs(alias)], { stdout: "ignore", stderr: "ignore" });
   masters.set(alias, proc);
+  let exited = false;
+  void proc.exited.then(() => {
+    exited = true;
+    if (masters.get(alias) === proc) masters.delete(alias);
+  });
+
+  const deadline = Date.now() + 5_000;
+  let lastError = "";
+  while (!exited && Date.now() < deadline) {
+    const check = await runSsh(checkMasterArgs(alias), 1_000);
+    if (check.ok) return;
+    lastError = check.error ?? "ssh master check failed";
+    await sleep(100);
+  }
+
+  masters.delete(alias);
+  try {
+    proc.kill();
+  } catch {
+    // Already exited.
+  }
+  throw new Error(lastError || `ssh master for ${alias} did not become ready`);
 }
 
 export async function closeMaster(alias: string): Promise<void> {
@@ -32,19 +93,13 @@ export async function closeMaster(alias: string): Promise<void> {
     }
     masters.delete(alias);
   }
-  await Bun.spawn(["ssh", "-O", "exit", "-o", `ControlPath=${controlPath(alias)}`, alias], {
-    stdout: "ignore",
-    stderr: "ignore",
-  }).exited;
+  await runSsh(["-O", "exit", "-o", `ControlPath=${controlPath(alias)}`, alias], 5_000);
 }
 
 export async function runRemote(
   alias: string,
   remoteCommand: string,
+  opts: { timeoutMs?: number } = {},
 ): Promise<{ ok: boolean; stdout: string; error?: string }> {
-  const proc = Bun.spawn(["ssh", ...sshArgs(alias, remoteCommand)], { stdout: "pipe", stderr: "pipe" });
-  const stdout = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
-  const code = await proc.exited;
-  return code === 0 ? { ok: true, stdout } : { ok: false, stdout, error: stderr.trim() || `ssh exited ${code}` };
+  return runSsh(sshArgs(alias, remoteCommand), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 }

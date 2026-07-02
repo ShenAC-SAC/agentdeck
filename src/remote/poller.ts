@@ -11,15 +11,30 @@ export function createRemotePoller(
   const seen = new Map<string, number>();
   let up = false;
   let timer: ReturnType<typeof setInterval> | undefined;
+  let inFlight: Promise<void> | undefined;
 
-  async function pollOnce(): Promise<void> {
-    const out = await deps.listSessions();
+  async function runPoll(): Promise<void> {
+    let out: string | null;
+    try {
+      out = await deps.listSessions();
+    } catch {
+      up = false;
+      return;
+    }
     if (out == null) {
       up = false;
       return;
     }
     up = true;
     ingestRows(registry, events, host, parseListSessions(out), seen);
+  }
+
+  async function pollOnce(): Promise<void> {
+    if (inFlight) return inFlight;
+    inFlight = runPoll().finally(() => {
+      inFlight = undefined;
+    });
+    return inFlight;
   }
 
   return {

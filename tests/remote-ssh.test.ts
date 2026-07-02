@@ -32,6 +32,8 @@ test("sshArgs reuses the ControlMaster socket for the alias", () => {
   const cp = controlPath("devbox");
   expect(sshArgs("devbox", "tmux -L deck list-sessions")).toEqual([
     "-o",
+    "ControlMaster=auto",
+    "-o",
     `ControlPath=${cp}`,
     "devbox",
     "tmux -L deck list-sessions",

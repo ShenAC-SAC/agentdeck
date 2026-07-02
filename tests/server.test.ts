@@ -75,6 +75,8 @@ test("POST /events with a Claude session_id captures it on the session", async (
   const hub = startHub(8826);
   try {
     hub.registry.upsert({ ...base, id: "cap1", agent: "claude-code" });
+    const updates: Session[] = [];
+    hub.events.on("update", (s: Session) => updates.push(s));
     await fetch("http://localhost:8826/events?sessionId=cap1&agent=claude-code", {
       method: "POST",
       body: JSON.stringify({
@@ -85,6 +87,7 @@ test("POST /events with a Claude session_id captures it on the session", async (
     });
     const sessions = (await (await fetch("http://localhost:8826/sessions")).json()) as Session[];
     expect(sessions.find((s) => s.id === "cap1")?.claudeSessionId).toBe("native-xyz");
+    expect(updates.at(-1)?.claudeSessionId).toBe("native-xyz");
   } finally {
     hub.stop();
   }
