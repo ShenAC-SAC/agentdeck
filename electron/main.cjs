@@ -16,6 +16,7 @@ const SHOT = process.env.DECK_SHOT || ""; // path: screenshot the embedded termi
 const SHOT_AGENT = process.env.DECK_SHOT_AGENT || "generic";
 const SHOT_CLICK_REMOTE = process.env.DECK_SHOT_CLICK_REMOTE === "1";
 const ICON_PATH = path.join(__dirname, "assets", "icon.png");
+const TRAY_ICON_PATH = ICON_PATH;
 
 // Set before the ready event so the macOS menu bar / dock stop saying "Electron".
 // (Packaged builds get the name + .icns from Info.plist; this covers dev runs.)
@@ -278,6 +279,7 @@ function createWindow() {
       win.hide();
     }
   });
+  return win;
 }
 
 function waitForWindowLoad(timeoutMs = 5000) {
@@ -295,25 +297,69 @@ function waitForWindowLoad(timeoutMs = 5000) {
   });
 }
 
-function toggleWindow() {
-  if (!win) return createWindow();
-  if (win.isVisible() && win.isFocused()) win.hide();
-  else {
-    win.show();
-    win.focus();
-  }
+function showWindow() {
+  if (!win || win.isDestroyed()) createWindow();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
 }
 
 function createTray() {
-  tray = new Tray(nativeImage.createEmpty());
+  const image = nativeImage.createFromPath(TRAY_ICON_PATH);
+  tray = new Tray(image.isEmpty() ? TRAY_ICON_PATH : image.resize({ width: 18, height: 18 }));
   tray.setToolTip("AgentDeck");
-  tray.setTitle("⚓");
-  tray.on("click", toggleWindow);
+  tray.on("click", showWindow);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Show deck", click: toggleWindow },
+      { label: "Show AgentDeck", click: showWindow },
       { type: "separator" },
       { label: "Quit AgentDeck", click: () => quit() },
+    ]),
+  );
+}
+
+function createAppMenu() {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: "AgentDeck",
+        submenu: [
+          { role: "about" },
+          { type: "separator" },
+          { role: "hide" },
+          { role: "hideOthers" },
+          { role: "unhide" },
+          { type: "separator" },
+          { role: "quit" },
+        ],
+      },
+      {
+        label: "Edit",
+        submenu: [
+          { role: "undo" },
+          { role: "redo" },
+          { type: "separator" },
+          { role: "cut" },
+          { role: "copy" },
+          { role: "paste" },
+          { role: "selectAll" },
+        ],
+      },
+      {
+        label: "View",
+        submenu: [
+          { role: "reload" },
+          { role: "forceReload" },
+          { role: "toggleDevTools" },
+          { type: "separator" },
+          { role: "resetZoom" },
+          { role: "zoomIn" },
+          { role: "zoomOut" },
+          { type: "separator" },
+          { role: "togglefullscreen" },
+        ],
+      },
+      { label: "Window", submenu: [{ role: "minimize" }, { role: "close" }] },
     ]),
   );
 }
@@ -324,10 +370,10 @@ async function refreshBadge() {
   try {
     const sessions = await (await fetch(`${URL}sessions`)).json();
     const waiting = sessions.filter((s) => s.state === "waiting").length;
-    if (tray) tray.setTitle(waiting > 0 ? `⚓ ${waiting}` : "⚓");
+    if (tray) tray.setToolTip(waiting > 0 ? `AgentDeck · ${waiting} need you` : "AgentDeck");
     if (app.dock) app.dock.setBadge(waiting > 0 ? String(waiting) : "");
   } catch {
-    if (tray) tray.setTitle("⚓");
+    if (tray) tray.setToolTip("AgentDeck");
   }
 }
 
@@ -362,13 +408,12 @@ function watchForAttention(port, targetWin) {
         const isAttention = attention.has(s.state) || stalled;
         if (isAttention && was !== key) {
           const n = new Notification({
-            title: `⚓ ${s.title}`,
+            title: `AgentDeck · ${s.title}`,
             body: s.lastSummaryLine || (stalled ? "looks stalled" : `is ${s.state}`),
           });
           n.on("click", () => {
             if (targetWin && !targetWin.isDestroyed()) {
-              targetWin.show();
-              targetWin.focus();
+              showWindow();
               targetWin.webContents.send("open-session", s.id);
             }
           });
@@ -395,6 +440,7 @@ function quit() {
 }
 
 app.whenReady().then(async () => {
+  createAppMenu();
   startHub();
   const up = await waitForHub();
   if (!up) console.error("hub did not become reachable on", URL);
@@ -434,7 +480,7 @@ app.whenReady().then(async () => {
   pollTimer = setInterval(refreshBadge, 3000);
   attentionStop = watchForAttention(PORT, win);
 
-  app.on("activate", () => toggleWindow());
+  app.on("activate", () => showWindow());
 });
 
 // Tray app: keep running after the window closes.

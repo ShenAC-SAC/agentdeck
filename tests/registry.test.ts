@@ -56,7 +56,7 @@ test("applyEvent clears a prior staleSince", () => {
   r.upsert(mk("a", { staleSince: 999, state: "working" }));
   const updated = r.applyEvent({ sessionId: "a", type: "turn-end", at: 5 });
   expect(updated?.staleSince).toBeUndefined();
-  expect(updated?.state).toBe("idle");
+  expect(updated?.state).toBe("waiting");
 });
 
 test("titleFromPrompt collapses whitespace and truncates", () => {

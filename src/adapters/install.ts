@@ -7,8 +7,9 @@ export function hubEventsUrl(port: number, sessionId: string, agent: AgentKind):
 }
 
 // Claude Code settings whose hooks pipe the native hook JSON (stdin) to the hub.
-// UserPromptSubmit -> working, Notification -> waiting, Stop -> idle. Launched
-// via `claude --settings <file>`.
+// UserPromptSubmit -> working; explicit blocking Notification -> waiting;
+// Stop/completion nudges -> turn-end, with state-machine context deciding
+// handoff vs idle. Launched via `claude --settings <file>`.
 export function claudeSettings(port: number, sessionId: string): { hooks: Record<string, unknown> } {
   const command = `curl -s -X POST "${hubEventsUrl(port, sessionId, "claude-code")}" --data-binary @-`;
   const entry = [{ hooks: [{ type: "command", command }] }];

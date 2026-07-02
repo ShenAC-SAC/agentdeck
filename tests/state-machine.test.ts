@@ -7,8 +7,12 @@ test("turn-start -> working", () => {
   expect(nextState("idle", { type: "turn-start", sessionId: "s", at })).toBe("working");
 });
 
-test("turn-end -> idle", () => {
-  expect(nextState("working", { type: "turn-end", sessionId: "s", at })).toBe("idle");
+test("turn-end after active work -> waiting handoff", () => {
+  expect(nextState("working", { type: "turn-end", sessionId: "s", at })).toBe("waiting");
+});
+
+test("turn-end before any active work stays idle", () => {
+  expect(nextState("idle", { type: "turn-end", sessionId: "s", at })).toBe("idle");
 });
 
 test("needs-input -> waiting", () => {

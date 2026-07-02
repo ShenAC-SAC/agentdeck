@@ -11,9 +11,9 @@ export function mapClaudeHook(sessionId: string, body: unknown): AdapterEvent {
     const message = asString(b.message);
     // Claude fires Notification for two very different things: a real block
     // that needs a decision ("Claude needs your permission to use Bash"), and a
-    // benign idle nudge after a finished turn ("Claude is waiting for your
-    // input"). Only the former deserves a "needs you" alarm — the idle nudge on
-    // an already-Resting agent is a false positive that pollutes the triage.
+    // generic turn-finished nudge ("Claude is waiting for your input"). The
+    // adapter only classifies the explicit block; state-machine context decides
+    // whether a generic turn end is a handoff or just a fresh idle session.
     if (isBlockingNotification(message)) {
       return { type: "needs-input", sessionId, at, summary: message };
     }
@@ -26,8 +26,8 @@ export function mapClaudeHook(sessionId: string, body: unknown): AdapterEvent {
 }
 
 // A Notification is a genuine block only when it asks for a decision. Claude's
-// permission/approval prompts carry these words; the idle "waiting for your
-// input" nudge does not, so it stays Resting.
+// permission/approval prompts carry these words; generic completion nudges do
+// not, so they flow through the normal turn-end path.
 function isBlockingNotification(message: string | undefined): boolean {
   if (!message) return false;
   return /permission|approv|confirm|authoriz|grant/i.test(message);

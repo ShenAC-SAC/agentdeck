@@ -22,13 +22,13 @@ test("CC permission Notification -> needs-input (a real block)", () => {
   expect(e.type).toBe("needs-input");
 });
 
-test("CC idle-reminder Notification -> turn-end, not a needs-you alarm", () => {
+test("CC completion Notification -> turn-end without summary", () => {
   const e = mapClaudeHook("s", {
     hook_event_name: "Notification",
     message: "Claude is waiting for your input",
   });
   expect(e.type).toBe("turn-end");
-  // the idle nudge must not clobber the agent's last real message
+  // the generic completion nudge must not clobber the agent's last real message
   expect(e.type === "turn-end" && e.summary).toBeUndefined();
 });
 

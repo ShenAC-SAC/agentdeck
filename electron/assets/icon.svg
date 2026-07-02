@@ -25,6 +25,7 @@
       <rect x="48" y="48" width="928" height="928" rx="208"/>
     </clipPath>
   </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
   <rect x="48" y="48" width="928" height="928" rx="208" fill="url(#bg)"/>
   <g clip-path="url(#squircle)">
     <rect x="48" y="48" width="928" height="928" fill="url(#halo)"/>
@@ -56,5 +57,4 @@
     <rect x="48" y="48" width="928" height="928" fill="url(#vignette)"/>
     <path d="M 48 48 H 976 V 300 Q 512 420 48 300 Z" fill="url(#sheen)"/>
   </g>
-  <rect x="49.5" y="49.5" width="925" height="925" rx="206.5" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="3"/>
 </svg>

@@ -1,4 +1,5 @@
 import { test, expect } from "bun:test";
+import { siAnthropic, siClaude, siOpenai } from "simple-icons";
 import { AGENT_MARK } from "../web/src/components/agent-mark-data";
 
 const AGENTS = ["claude-code", "codex", "opencode", "generic"] as const;
@@ -13,6 +14,13 @@ test("every agent kind has a mark", () => {
 test("vendor agents use vendor fill icons", () => {
   expect(AGENT_MARK["claude-code"].mode).toBe("fill");
   expect(AGENT_MARK.codex.mode).toBe("fill");
-  expect(AGENT_MARK.opencode.mode).toBe("stroke");
+  expect(AGENT_MARK.opencode.mode).toBe("fill");
   expect(AGENT_MARK.generic.mode).toBe("stroke");
+});
+
+test("agent marks match the visual language", () => {
+  expect(AGENT_MARK["claude-code"].path).toBe(siClaude.path);
+  expect(AGENT_MARK.codex.path).toBe(siOpenai.path);
+  expect(AGENT_MARK.opencode.path).toBe(siAnthropic.path);
+  expect(AGENT_MARK.generic.path).toContain("M3 5");
 });

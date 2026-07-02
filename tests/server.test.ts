@@ -34,7 +34,7 @@ test("CC Notification (sessionId+agent in query) -> waiting + emit", async () =>
   }
 });
 
-test("Codex agent-turn-complete (sessionId in body) -> idle", async () => {
+test("Codex agent-turn-complete (sessionId in body) -> waiting handoff", async () => {
   const hub = startHub(8800);
   try {
     hub.registry.upsert({ ...base, id: "s2" });
@@ -47,8 +47,22 @@ test("Codex agent-turn-complete (sessionId in body) -> idle", async () => {
         "last-assistant-message": "done",
       }),
     });
-    expect(hub.registry.get("s2")?.state).toBe("idle");
+    expect(hub.registry.get("s2")?.state).toBe("waiting");
     expect(hub.registry.get("s2")?.lastSummaryLine).toBe("done");
+  } finally {
+    hub.stop();
+  }
+});
+
+test("generic turn-complete before work stays resting", async () => {
+  const hub = startHub(8825);
+  try {
+    hub.registry.upsert({ ...base, id: "fresh", agent: "generic", state: "idle" });
+    await fetch("http://localhost:8825/events?sessionId=fresh&agent=generic", {
+      method: "POST",
+      body: JSON.stringify({ type: "turn-complete" }),
+    });
+    expect(hub.registry.get("fresh")?.state).toBe("idle");
   } finally {
     hub.stop();
   }
