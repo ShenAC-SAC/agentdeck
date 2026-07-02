@@ -140,6 +140,13 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
             await tmux.setSessionOption(sessionId, "@deck_title", updated.title).catch(() => {});
             await tmux.setSessionOption(sessionId, "@deck_title_locked", "1").catch(() => {});
           }
+          if (updated.host === "local" && agent !== "codex") {
+            const sid = asString(body.session_id);
+            if (sid && sid !== updated.claudeSessionId) {
+              const withId = registry.setClaudeSessionId(sessionId, sid);
+              if (withId) events.emit("update", withId);
+            }
+          }
           events.emit("update", updated);
         }
         return new Response("ok");

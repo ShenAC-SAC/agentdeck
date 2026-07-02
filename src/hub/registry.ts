@@ -44,6 +44,14 @@ export class Registry {
     return updated;
   }
 
+  setClaudeSessionId(id: string, claudeSessionId: string): Session | undefined {
+    const current = this.map.get(id);
+    if (!current) return undefined;
+    const updated: Session = { ...current, claudeSessionId };
+    this.map.set(id, updated);
+    return updated;
+  }
+
   applyEvent(e: AdapterEvent): Session | undefined {
     const s = this.map.get(e.sessionId);
     if (!s) return undefined;

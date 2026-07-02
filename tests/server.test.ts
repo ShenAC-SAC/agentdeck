@@ -68,6 +68,25 @@ test("generic turn-complete before work stays resting", async () => {
   }
 });
 
+test("POST /events with a Claude session_id captures it on the session", async () => {
+  const hub = startHub(8826);
+  try {
+    hub.registry.upsert({ ...base, id: "cap1", agent: "claude-code" });
+    await fetch("http://localhost:8826/events?sessionId=cap1&agent=claude-code", {
+      method: "POST",
+      body: JSON.stringify({
+        hook_event_name: "Stop",
+        last_assistant_message: "done",
+        session_id: "native-xyz",
+      }),
+    });
+    const sessions = (await (await fetch("http://localhost:8826/sessions")).json()) as Session[];
+    expect(sessions.find((s) => s.id === "cap1")?.claudeSessionId).toBe("native-xyz");
+  } finally {
+    hub.stop();
+  }
+});
+
 test("missing sessionId -> 400", async () => {
   const hub = startHub(8801);
   try {

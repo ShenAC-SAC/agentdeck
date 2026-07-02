@@ -20,4 +20,5 @@ export interface Session {
   lastSummaryLine: string;
   staleSince?: number; // set by the liveness monitor when a working session's pane went quiet
   titleLocked?: boolean; // true once a manual rename or the first prompt has named it
+  claudeSessionId?: string; // native Claude session id, for `claude --resume`
 }

@@ -51,6 +51,15 @@ test("setStale sets and clears staleSince", () => {
   expect(r.setStale("missing", 1)).toBeUndefined();
 });
 
+test("setClaudeSessionId stores the native id", () => {
+  const r = new Registry();
+  r.upsert(mk("a", { agent: "claude-code" }));
+  const updated = r.setClaudeSessionId("a", "abc-123");
+  expect(updated?.claudeSessionId).toBe("abc-123");
+  expect(r.get("a")?.claudeSessionId).toBe("abc-123");
+  expect(r.setClaudeSessionId("missing", "x")).toBeUndefined();
+});
+
 test("applyEvent clears a prior staleSince", () => {
   const r = new Registry();
   r.upsert(mk("a", { staleSince: 999, state: "working" }));
