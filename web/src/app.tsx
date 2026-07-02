@@ -42,7 +42,6 @@ export function App() {
   const deckapp = (window as unknown as {
     deckapp?: {
       onOpenSession: (cb: (id: string) => void) => void;
-      onOpenHistory?: (cb: () => void) => void;
       setOpenSession?: (id: string | null) => void;
     };
   }).deckapp;
@@ -56,10 +55,6 @@ export function App() {
   // Under Electron, clicking a native notification opens that session.
   useEffect(() => {
     deckapp?.onOpenSession((id) => setView({ kind: "session", id }));
-  }, [deckapp]);
-
-  useEffect(() => {
-    deckapp?.onOpenHistory?.(() => setView({ kind: "history" }));
   }, [deckapp]);
 
   useEffect(() => {

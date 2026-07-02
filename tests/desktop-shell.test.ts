@@ -78,18 +78,6 @@ test("a later handoff for a seen session becomes unread again", () => {
   expect(later.unread).toBe(1);
 });
 
-test("unexpected remove notifications open History", async () => {
-  const main = await Bun.file("electron/main.cjs").text();
-  const preload = await Bun.file("electron/preload.cjs").text();
-  const app = await Bun.file("web/src/app.tsx").text();
-
-  expect(main).toContain('frame.startsWith("event: remove")');
-  expect(main).toContain('r.reason === "reaped"');
-  expect(main).toContain('targetWin.webContents.send("open-history")');
-  expect(preload).toContain("onOpenHistory");
-  expect(app).toContain("onOpenHistory");
-});
-
 function firstPixelRGBA(bytes: Uint8Array): [number, number, number, number] {
   const sig = [137, 80, 78, 71, 13, 10, 26, 10];
   for (let i = 0; i < sig.length; i++) expect(bytes[i]).toBe(sig[i]);
