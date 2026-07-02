@@ -14,6 +14,24 @@ test("CC Notification -> needs-input, summary from message", () => {
   expect(e.type === "needs-input" && e.summary).toBe("needs approval");
 });
 
+test("CC permission Notification -> needs-input (a real block)", () => {
+  const e = mapClaudeHook("s", {
+    hook_event_name: "Notification",
+    message: "Claude needs your permission to use Bash",
+  });
+  expect(e.type).toBe("needs-input");
+});
+
+test("CC idle-reminder Notification -> turn-end, not a needs-you alarm", () => {
+  const e = mapClaudeHook("s", {
+    hook_event_name: "Notification",
+    message: "Claude is waiting for your input",
+  });
+  expect(e.type).toBe("turn-end");
+  // the idle nudge must not clobber the agent's last real message
+  expect(e.type === "turn-end" && e.summary).toBeUndefined();
+});
+
 test("CC UserPromptSubmit -> turn-start (working), summary from prompt", () => {
   const e = mapClaudeHook("s", { hook_event_name: "UserPromptSubmit", prompt: "refactor auth" });
   expect(e.type).toBe("turn-start");
