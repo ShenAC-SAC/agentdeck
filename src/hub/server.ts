@@ -13,7 +13,7 @@ import { tmux } from "../tmux/tmux";
 import type { HubOptions } from "./hub";
 import { detectLocalAgents } from "../agents/availability";
 import { sshTargetFromHost, validateRemoteWorkspace } from "../remote/ssh";
-import { listArchived, deleteArchived } from "./persistence";
+import { listArchived, deleteArchived, getArchived, markResumed } from "./persistence";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
@@ -182,6 +182,35 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         return deleteArchived(opts.db, id)
           ? new Response("ok")
           : new Response("unknown archived session", { status: 404 });
+      }
+
+      const resumeMatch = req.method === "POST" ? url.pathname.match(/^\/history\/([^/]+)\/resume$/) : null;
+      if (resumeMatch) {
+        if (!opts.db) return new Response("no store", { status: 503 });
+        const id = decodeURIComponent(resumeMatch[1]);
+        const row = getArchived(opts.db, id);
+        if (!row) return new Response("unknown archived session", { status: 404 });
+        if (row.agent !== "claude-code" || !row.claudeSessionId) {
+          return new Response("only archived Claude sessions with a session id can be resumed", { status: 400 });
+        }
+        let spawned: Awaited<ReturnType<typeof spawnAgent>>;
+        try {
+          spawned = await spawnAgent({
+            agent: "claude-code",
+            name: `deck_${Date.now()}`,
+            registry,
+            hubPort: port,
+            cwd: row.cwd,
+            title: row.title,
+            resumeSessionId: row.claudeSessionId,
+          });
+        } catch (e) {
+          return new Response(`resume failed: ${e instanceof Error ? e.message : String(e)}`, { status: 500 });
+        }
+        const session = registry.get(spawned.id);
+        if (session) events.emit("update", session);
+        markResumed(opts.db, id, spawned.id);
+        return Response.json({ id: spawned.id });
       }
 
       if (req.method === "GET") {

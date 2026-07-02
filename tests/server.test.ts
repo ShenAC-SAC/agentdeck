@@ -134,6 +134,20 @@ test("GET /history returns archived rows; DELETE removes them", async () => {
   }
 });
 
+test("POST /history/:id/resume 400s a non-Claude or id-less archived row", async () => {
+  const db = new Database(":memory:");
+  applySchema(db);
+  archive(db, { ...base, id: "g1", agent: "generic", state: "idle" }, "closed", 123);
+  const hub = startHub(8828, { db });
+  try {
+    const res = await fetch("http://localhost:8828/history/g1/resume", { method: "POST" });
+    expect(res.status).toBe(400);
+  } finally {
+    hub.stop();
+    db.close();
+  }
+});
+
 test("GET /agents returns agent availability", async () => {
   const hub = startHub(8813);
   try {

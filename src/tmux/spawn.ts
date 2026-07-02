@@ -5,7 +5,7 @@ import { startHeuristicPoller } from "../adapters/heuristic";
 import type { AgentKind } from "../types";
 import type { Registry } from "../hub/registry";
 import { numberedTerminalTitle } from "../workspace";
-import { remoteTmuxNewSession, sshTargetFromHost } from "../remote/ssh";
+import { remoteTmuxNewSession, shQuote, sshTargetFromHost } from "../remote/ssh";
 import { deckSessionOptions } from "../hub/rehydrate";
 
 const tmpDir = () => process.env.TMPDIR ?? "/tmp";
@@ -14,6 +14,11 @@ export interface SpawnResult {
   id: string;
   target: string;
   stop: () => void; // stops the heuristic poller, if any
+}
+
+export function claudeLaunchCommand(settingsPath: string, resumeSessionId?: string): string {
+  const resume = resumeSessionId ? ` --resume ${shQuote(resumeSessionId)}` : "";
+  return `exec claude${resume} --settings "${settingsPath}"`;
 }
 
 // Starts an agent in a deck-managed tmux session, wires its events to the hub,
@@ -26,6 +31,7 @@ export async function spawnAgent(opts: {
   hubPort: number;
   title?: string;
   cwd?: string;
+  resumeSessionId?: string;
 }): Promise<SpawnResult> {
   const { agent, name, registry, hubPort } = opts;
   const cwd = opts.cwd ?? process.env.HOME ?? process.cwd();
@@ -34,8 +40,9 @@ export async function spawnAgent(opts: {
 
   let launch: string;
   if (agent === "claude-code") {
-    await Bun.write(`${base}.claude-settings.json`, JSON.stringify(claudeSettings(hubPort, name)));
-    launch = `exec claude --settings "${base}.claude-settings.json"`;
+    const settingsPath = `${base}.claude-settings.json`;
+    await Bun.write(settingsPath, JSON.stringify(claudeSettings(hubPort, name)));
+    launch = claudeLaunchCommand(settingsPath, opts.resumeSessionId);
   } else if (agent === "codex") {
     await Bun.write(`${base}.codex-notify.sh`, codexNotifyScript(hubPort, name));
     launch = `exec codex -c 'notify=["bash","${base}.codex-notify.sh"]'`;
