@@ -51,3 +51,99 @@ export function archive(db: Database, s: Session, reason: EndReason, at: number 
      WHERE id=?`,
   ).run(at, reason, isUnexpected(reason, s.state) ? 1 : 0, s.state, s.lastSummaryLine ?? null, s.id);
 }
+
+export interface ArchivedRow {
+  id: string;
+  agent: string;
+  title: string;
+  cwd: string;
+  host: string;
+  lastState: string;
+  lastSummary: string | null;
+  startedAt: number;
+  endedAt: number | null;
+  endReason: string | null;
+  unexpected: boolean;
+  claudeSessionId?: string;
+  parentId?: string;
+  resumedInto?: string;
+}
+
+interface Raw {
+  id: string;
+  agent: string;
+  title: string;
+  cwd: string;
+  host: string;
+  last_state: string;
+  last_summary: string | null;
+  started_at: number;
+  ended_at: number | null;
+  end_reason: string | null;
+  unexpected: number;
+  claude_session_id: string | null;
+  parent_id: string | null;
+  resumed_into: string | null;
+}
+
+function toRow(r: Raw): ArchivedRow {
+  return {
+    id: r.id,
+    agent: r.agent,
+    title: r.title,
+    cwd: r.cwd,
+    host: r.host,
+    lastState: r.last_state,
+    lastSummary: r.last_summary,
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+    endReason: r.end_reason,
+    unexpected: r.unexpected === 1,
+    claudeSessionId: r.claude_session_id ?? undefined,
+    parentId: r.parent_id ?? undefined,
+    resumedInto: r.resumed_into ?? undefined,
+  };
+}
+
+// Actionable first (resumable Claude, then unexpected), clean exits last; recency within.
+const ORDER_SQL = `
+  ORDER BY
+    (CASE WHEN agent='claude-code' AND claude_session_id IS NOT NULL THEN 0 ELSE 1 END),
+    (CASE WHEN unexpected=1 THEN 0 ELSE 1 END),
+    ended_at DESC`;
+
+export function listArchived(db: Database): ArchivedRow[] {
+  return (db.query(`SELECT * FROM sessions WHERE status='archived' ${ORDER_SQL}`).all() as Raw[]).map(toRow);
+}
+
+export function getArchived(db: Database, id: string): ArchivedRow | undefined {
+  const r = db.query(`SELECT * FROM sessions WHERE id=? AND status='archived'`).get(id) as Raw | null;
+  return r ? toRow(r) : undefined;
+}
+
+export function deleteArchived(db: Database, id: string): boolean {
+  const r = db.query(`DELETE FROM sessions WHERE id=? AND status='archived'`).run(id);
+  db.query(`DELETE FROM session_events WHERE session_id=?`).run(id);
+  return r.changes > 0;
+}
+
+// On boot: mark local live rows whose id is not in the current tmux set as
+// died-offline; upsert the ones still alive and any brand-new tmux sessions.
+export function reconcileOnBoot(db: Database, liveSessions: Session[], at: number = Date.now()): void {
+  const liveIds = new Set(liveSessions.map((s) => s.id));
+  const staleRows = db.query(`SELECT * FROM sessions WHERE status='live' AND host='local'`).all() as Raw[];
+  for (const r of staleRows) {
+    if (liveIds.has(r.id)) continue;
+    db.query(`UPDATE sessions SET status='archived', ended_at=?, end_reason='died-offline', unexpected=? WHERE id=?`).run(
+      at,
+      isUnexpected("died-offline", r.last_state) ? 1 : 0,
+      r.id,
+    );
+  }
+  for (const s of liveSessions) upsertLive(db, s);
+}
+
+export function markResumed(db: Database, archivedId: string, newLiveId: string): void {
+  db.query(`UPDATE sessions SET resumed_into=? WHERE id=?`).run(newLiveId, archivedId);
+  db.query(`UPDATE sessions SET parent_id=? WHERE id=?`).run(archivedId, newLiveId);
+}

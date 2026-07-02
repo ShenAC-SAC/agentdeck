@@ -1,7 +1,17 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
 import { applySchema } from "../src/hub/db";
-import { upsertLive, appendEvent, archive, isUnexpected } from "../src/hub/persistence";
+import {
+  upsertLive,
+  appendEvent,
+  archive,
+  isUnexpected,
+  listArchived,
+  getArchived,
+  deleteArchived,
+  reconcileOnBoot,
+  markResumed,
+} from "../src/hub/persistence";
 import type { Session } from "../src/types";
 
 function db(): Database {
@@ -70,4 +80,49 @@ test("archive flips status, stamps ended_at/reason/unexpected", () => {
   expect(row.ended_at).toBe(500);
   expect(row.end_reason).toBe("reaped");
   expect(row.unexpected).toBe(1);
+});
+
+test("listArchived orders actionable-first then recency", () => {
+  const d = db();
+  archive(d, sess({ id: "shell", agent: "generic", state: "idle", lastActivityAt: 10 }), "closed", 300);
+  upsertLive(d, sess({ id: "claude", claudeSessionId: "n1", state: "idle" }));
+  archive(d, sess({ id: "claude", claudeSessionId: "n1", state: "idle" }), "reaped", 900);
+  archive(d, sess({ id: "crash", state: "error" }), "reaped", 600);
+  const ids = listArchived(d).map((r) => r.id);
+  expect(ids[0]).toBe("claude");
+  expect(ids[ids.length - 1]).toBe("shell");
+});
+
+test("deleteArchived removes the row and its events", () => {
+  const d = db();
+  upsertLive(d, sess({ id: "x" }));
+  appendEvent(d, "x", 1, "working", null);
+  archive(d, sess({ id: "x" }), "reaped", 100);
+  expect(deleteArchived(d, "x")).toBe(true);
+  expect(getArchived(d, "x")).toBeUndefined();
+  expect(d.query("SELECT COUNT(*) c FROM session_events WHERE session_id='x'").get()).toEqual({ c: 0 } as any);
+});
+
+test("reconcileOnBoot archives local live rows whose tmux is gone, keeps present and remote ones", () => {
+  const d = db();
+  upsertLive(d, sess({ id: "alive", state: "working" }));
+  upsertLive(d, sess({ id: "dead", state: "working" }));
+  upsertLive(d, sess({ id: "remote", host: "ssh:box", state: "working" }));
+  reconcileOnBoot(d, [sess({ id: "alive", state: "working" }), sess({ id: "fresh", state: "idle" })], 700);
+  expect((d.query("SELECT status FROM sessions WHERE id='alive'").get() as any).status).toBe("live");
+  expect((d.query("SELECT status FROM sessions WHERE id='fresh'").get() as any).status).toBe("live");
+  expect((d.query("SELECT status FROM sessions WHERE id='remote'").get() as any).status).toBe("live");
+  const dead = d.query("SELECT status,end_reason,unexpected FROM sessions WHERE id='dead'").get() as any;
+  expect(dead.status).toBe("archived");
+  expect(dead.end_reason).toBe("died-offline");
+  expect(dead.unexpected).toBe(1);
+});
+
+test("markResumed links ancestor and descendant", () => {
+  const d = db();
+  archive(d, sess({ id: "old", claudeSessionId: "n1", state: "idle" }), "reaped", 100);
+  upsertLive(d, sess({ id: "new" }));
+  markResumed(d, "old", "new");
+  expect(getArchived(d, "old")?.resumedInto).toBe("new");
+  expect((d.query("SELECT parent_id FROM sessions WHERE id='new'").get() as any).parent_id).toBe("old");
 });
