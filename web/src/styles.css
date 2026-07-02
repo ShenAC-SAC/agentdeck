@@ -1,34 +1,44 @@
-/* AgentDeck — warm "ship's bridge at night" control deck, two-pane layout.
-   Fraunces (characterful serif) carries the romance; JetBrains Mono is the
-   telemetry. Left sidebar = agent categories with waiting badges; right =
-   the crew grid. */
+/* AgentDeck — "deep-sea bridge" control deck. One language with the dock
+   icon: deep navy water, bright brass only where the ship needs you.
+   Fonts: system sans is the hull, Fraunces the brass nameplate, JetBrains
+   Mono the instruments. */
 
 :root {
-  --ink: #14100c;
-  --ink-2: #191410;
-  --sidebar: #17120d;
-  --surface: #221a13;
-  --surface-hi: #2c2219;
-  --line: #3a2d21;
-  --line-soft: #2a211a;
+  --bg-0: #0b1520;
+  --bg-1: #0e1c29;
+  --panel: #12212e;
+  --panel-hi: #16283a;
+  --term-bg: #081018;
 
-  --text: #f4ead9;
-  --text-dim: #bcac96;
-  --text-faint: #83725d;
+  --line: #1e3446;
+  --line-soft: #16283a;
+
+  --text: #e8eef2;
+  --text-dim: #8fa3b0;
+  --text-faint: #5c7080;
 
   --brass: #e2a54c;
   --brass-soft: #b6853c;
+  --brass-ink: #201603;
 
-  --tone-working: #63c39b;
-  --tone-waiting: #f2b45c;
-  --tone-idle: #9b8c78;
-  --tone-error: #e76a4e;
+  --tone-working: #4fc596;
+  --tone-waiting: #f0b45c;
+  --tone-idle: #7d93a3;
+  --tone-error: #e5674b;
 
-  --shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.85);
-  --radius: 18px;
+  --radius: 10px;
+  --shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.7);
 
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* legacy aliases — removed in the cleanup task once no rule references them */
+  --ink: var(--bg-0);
+  --ink-2: var(--bg-1);
+  --sidebar: var(--panel);
+  --surface: var(--panel);
+  --surface-hi: var(--panel-hi);
 }
 
 * {
@@ -40,27 +50,18 @@ body,
 #root {
   margin: 0;
   min-height: 100vh;
-  background: var(--ink);
+  background: var(--bg-1);
 }
 
 body {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--text);
   background:
-    radial-gradient(1100px 620px at 22% -8%, rgba(226, 165, 76, 0.13), transparent 60%),
-    radial-gradient(900px 700px at 100% 0%, rgba(99, 195, 155, 0.05), transparent 55%),
-    var(--ink);
+    radial-gradient(900px 500px at 20% -10%, rgba(226, 165, 76, 0.04), transparent 60%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0));
   background-attachment: fixed;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .app {

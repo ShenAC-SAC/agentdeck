@@ -17,6 +17,8 @@
     "app:smoke": "DECK_SMOKE=1 electron ."
   },
   "dependencies": {
+    "@fontsource/fraunces": "^5.2.9",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "ink": "^7.1.0",
