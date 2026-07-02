@@ -832,6 +832,85 @@ body {
   outline: none;
 }
 
+/* ---- History ---------------------------------------------------------- */
+.history-list {
+  gap: 2px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  transition: background 0.14s ease;
+}
+
+.history-row:hover {
+  background: var(--panel-hi);
+}
+
+.history-row[data-unexpected="true"] {
+  box-shadow: inset -2px 0 0 var(--tone-error);
+}
+
+.history-row[data-unexpected="true"] .history-row__title {
+  color: var(--tone-error);
+}
+
+.history-row__title,
+.history-row__meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.history-row__meta {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.history-row__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.history-row__actions button {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+
+.history-row__actions button:hover {
+  color: var(--text);
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.history-row__actions button:last-child:hover {
+  color: var(--tone-error);
+  border-color: color-mix(in srgb, var(--tone-error) 45%, transparent);
+  background: rgba(229, 103, 75, 0.1);
+}
+
 /* ---- Motion ----------------------------------------------------------- */
 @keyframes rowIn {
   to {

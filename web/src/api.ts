@@ -1,4 +1,4 @@
-import type { Session, AgentKind } from "./types";
+import type { ArchivedSession, Session, AgentKind } from "./types";
 
 export interface AgentAvailability {
   agent: AgentKind;
@@ -66,6 +66,23 @@ export async function markSessionActivity(sessionId: string): Promise<void> {
 export async function closeSession(id: string): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
   return res.ok ? { ok: true } : { ok: false, error: await res.text() };
+}
+
+export async function getHistory(): Promise<ArchivedSession[]> {
+  const res = await fetch("/history");
+  return res.ok ? ((await res.json()) as ArchivedSession[]) : [];
+}
+
+export async function deleteHistory(id: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`/history/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return res.ok ? { ok: true } : { ok: false, error: await res.text() };
+}
+
+export async function resumeSession(id: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const res = await fetch(`/history/${encodeURIComponent(id)}/resume`, { method: "POST" });
+  if (!res.ok) return { ok: false, error: await res.text() };
+  const { id: newId } = (await res.json()) as { id?: string };
+  return newId ? { ok: true, id: newId } : { ok: false, error: "resume response had no id" };
 }
 
 export function jump(sessionId: string): Promise<Response> {
