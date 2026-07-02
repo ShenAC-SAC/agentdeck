@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
+import { EventEmitter } from "node:events";
 import { applySchema } from "../src/hub/db";
 import {
   upsertLive,
@@ -11,6 +12,7 @@ import {
   deleteArchived,
   reconcileOnBoot,
   markResumed,
+  createPersistenceListener,
 } from "../src/hub/persistence";
 import type { Session } from "../src/types";
 
@@ -125,4 +127,23 @@ test("markResumed links ancestor and descendant", () => {
   markResumed(d, "old", "new");
   expect(getArchived(d, "old")?.resumedInto).toBe("new");
   expect((d.query("SELECT parent_id FROM sessions WHERE id='new'").get() as any).parent_id).toBe("old");
+});
+
+test("listener upserts on update, appends an event only on state change, archives on remove", () => {
+  const d = db();
+  const bus = new EventEmitter();
+  const stop = createPersistenceListener(d, bus);
+
+  bus.emit("update", sess({ id: "L", state: "working", lastActivityAt: 1, lastSummaryLine: "a" }));
+  bus.emit("update", sess({ id: "L", state: "working", lastActivityAt: 2, lastSummaryLine: "a" }));
+  bus.emit("update", sess({ id: "L", state: "waiting", lastActivityAt: 3, lastSummaryLine: "b" }));
+  const events = d
+    .query("SELECT state FROM session_events WHERE session_id='L' ORDER BY at")
+    .all()
+    .map((r: any) => r.state);
+  expect(events).toEqual(["working", "waiting"]);
+
+  bus.emit("remove", sess({ id: "L", state: "waiting" }), "closed");
+  expect((d.query("SELECT status FROM sessions WHERE id='L'").get() as any).status).toBe("archived");
+  stop();
 });

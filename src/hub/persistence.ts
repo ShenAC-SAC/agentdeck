@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import type { EventEmitter } from "node:events";
 import type { Session } from "../types";
 
 export type EndReason = "reaped" | "closed" | "died-offline";
@@ -146,4 +147,27 @@ export function reconcileOnBoot(db: Database, liveSessions: Session[], at: numbe
 export function markResumed(db: Database, archivedId: string, newLiveId: string): void {
   db.query(`UPDATE sessions SET resumed_into=? WHERE id=?`).run(newLiveId, archivedId);
   db.query(`UPDATE sessions SET parent_id=? WHERE id=?`).run(archivedId, newLiveId);
+}
+
+// Subscribe to the hub's event bus and mirror session truth into sqlite. Keeps
+// a per-id last-state map so only real state transitions append an event.
+export function createPersistenceListener(db: Database, events: EventEmitter): () => void {
+  const lastState = new Map<string, string>();
+  const onUpdate = (s: Session) => {
+    upsertLive(db, s);
+    if (lastState.get(s.id) !== s.state) {
+      appendEvent(db, s.id, s.lastActivityAt, s.state, s.lastSummaryLine ?? null);
+      lastState.set(s.id, s.state);
+    }
+  };
+  const onRemove = (s: Session, reason?: EndReason) => {
+    archive(db, s, reason ?? "reaped");
+    lastState.delete(s.id);
+  };
+  events.on("update", onUpdate);
+  events.on("remove", onRemove);
+  return () => {
+    events.off("update", onUpdate);
+    events.off("remove", onRemove);
+  };
 }
