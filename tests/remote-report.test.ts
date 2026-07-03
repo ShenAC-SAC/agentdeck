@@ -3,6 +3,7 @@ import { chmod, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { remoteClaudeSettings, remoteReportScript } from "../src/remote/report";
+import { remoteAgentLaunch } from "../src/tmux/spawn";
 
 test("report script bumps a seq and writes agent + base64 payload to tmux options", () => {
   const script = remoteReportScript("deck_1", "claude-code");
@@ -23,6 +24,13 @@ test("remote claude settings pipe the hook JSON into the report script", () => {
   expect(command).toContain("UserPromptSubmit");
   expect(command).toContain("Stop");
   expect(command).toContain("Notification");
+});
+
+test("remoteAgentLaunch wires each agent to its remote reporter", () => {
+  expect(remoteAgentLaunch("claude-code", "/tmp/r.sh")).toContain("claude --settings");
+  expect(remoteAgentLaunch("codex", "/tmp/r.sh")).toContain("notify=");
+  expect(remoteAgentLaunch("opencode", "/tmp/r.sh")).toContain("opencode");
+  expect(remoteAgentLaunch("generic", "/tmp/r.sh")).toContain("bash");
 });
 
 test("report script appends events to a bounded queue", async () => {

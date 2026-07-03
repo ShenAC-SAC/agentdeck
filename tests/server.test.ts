@@ -137,6 +137,48 @@ test("GET /history returns archived rows; DELETE removes them", async () => {
   }
 });
 
+test("remote routes expose hosts, status, connect, and disconnect via controller", async () => {
+  const calls: string[] = [];
+  const hub = startHub(8829, {
+    remote: {
+      hosts: async () => [{ alias: "devbox", hostname: "10.0.0.5", user: "mac" }],
+      connected: () => ["devbox"],
+      status: () => [{ host: "devbox", reachable: false }],
+      connect: async (host: string) => {
+        calls.push(`connect:${host}`);
+      },
+      disconnect: async (host: string) => {
+        calls.push(`disconnect:${host}`);
+      },
+    },
+  });
+  try {
+    const hosts = (await (await fetch("http://localhost:8829/remote/hosts")).json()) as Array<{ alias: string }>;
+    expect(hosts.map((h) => h.alias)).toContain("devbox");
+    const status = (await (await fetch("http://localhost:8829/remote/status")).json()) as Array<{
+      host: string;
+      reachable: boolean;
+    }>;
+    expect(status).toEqual([{ host: "devbox", reachable: false }]);
+
+    expect(
+      (await fetch("http://localhost:8829/remote/connect", {
+        method: "POST",
+        body: JSON.stringify({ host: "devbox" }),
+      })).status,
+    ).toBe(200);
+    expect(
+      (await fetch("http://localhost:8829/remote/disconnect", {
+        method: "POST",
+        body: JSON.stringify({ host: "devbox" }),
+      })).status,
+    ).toBe(200);
+    expect(calls).toEqual(["connect:devbox", "disconnect:devbox"]);
+  } finally {
+    hub.stop();
+  }
+});
+
 test("POST /history/:id/resume 400s a non-Claude or id-less archived row", async () => {
   const db = new Database(":memory:");
   applySchema(db);
@@ -434,29 +476,74 @@ test("POST /spawn rejects unknown agent names", async () => {
   }
 });
 
-test("POST /spawn rejects remote agent mode in M2-lite", async () => {
-  const hub = startHub(8815);
+test("POST /spawn routes a remote agent to the injected remote spawner", async () => {
+  const calls: Array<{ host: string; agent: string; cwd: string }> = [];
+  const hub = startHub(8815, {
+    remoteSpawn: {
+      agent: async ({ host, agent, cwd, name, registry }) => {
+        calls.push({ host, agent, cwd });
+        registry.upsert({
+          ...base,
+          id: name,
+          agent,
+          cwd,
+          host,
+          tmuxTarget: `${name}:0.0`,
+          state: "idle",
+        });
+        return { id: name, target: `${name}:0.0`, stop: () => {} };
+      },
+      shell: async () => {
+        throw new Error("shell should not be called");
+      },
+    },
+  });
   try {
     const res = await fetch("http://localhost:8815/spawn", {
       method: "POST",
-      body: JSON.stringify({ agent: "codex", host: "ssh:devbox", mode: "agent", cwd: "/srv/app" }),
+      body: JSON.stringify({ agent: "codex", host: "devbox", mode: "agent", cwd: "/srv/app" }),
     });
-    expect(res.status).toBe(400);
-    expect(await res.text()).toContain("remote agent mode is not implemented");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string };
+    expect(body.id).toMatch(/^deck_/);
+    expect(calls).toEqual([{ host: "devbox", agent: "codex", cwd: "/srv/app" }]);
+    expect(hub.registry.get(body.id)?.host).toBe("devbox");
   } finally {
     hub.stop();
   }
 });
 
-test("POST /spawn rejects non-generic remote shell", async () => {
-  const hub = startHub(8816);
+test("POST /spawn routes a remote shell to the injected shell spawner", async () => {
+  const calls: Array<{ host: string; cwd: string }> = [];
+  const hub = startHub(8816, {
+    remoteSpawn: {
+      agent: async () => {
+        throw new Error("agent should not be called");
+      },
+      shell: async ({ host, cwd, name, registry }) => {
+        calls.push({ host, cwd });
+        registry.upsert({
+          ...base,
+          id: name,
+          agent: "generic",
+          cwd,
+          host,
+          tmuxTarget: `${name}:0.0`,
+          state: "idle",
+        });
+        return { id: name, target: `${name}:0.0`, stop: () => {} };
+      },
+    },
+  });
   try {
     const res = await fetch("http://localhost:8816/spawn", {
       method: "POST",
-      body: JSON.stringify({ agent: "codex", host: "ssh:devbox", mode: "shell", cwd: "/srv/app" }),
+      body: JSON.stringify({ agent: "generic", host: "devbox", mode: "shell", cwd: "/srv/app" }),
     });
-    expect(res.status).toBe(400);
-    expect(await res.text()).toContain("remote shell sessions must use generic");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string };
+    expect(calls).toEqual([{ host: "devbox", cwd: "/srv/app" }]);
+    expect(hub.registry.get(body.id)?.agent).toBe("generic");
   } finally {
     hub.stop();
   }

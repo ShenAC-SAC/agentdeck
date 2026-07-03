@@ -5,8 +5,10 @@ import { startHeuristicPoller } from "../adapters/heuristic";
 import type { AgentKind } from "../types";
 import type { Registry } from "../hub/registry";
 import { numberedTerminalTitle } from "../workspace";
-import { remoteTmuxNewSession, shQuote, sshTargetFromHost } from "../remote/ssh";
+import { shQuote } from "../remote/ssh";
 import { deckSessionOptions } from "../hub/rehydrate";
+import { ensureMaster, runRemote } from "../remote/connection";
+import { remoteClaudeSettings, remoteCodexNotifyArg, remoteReportScript } from "../remote/report";
 
 const tmpDir = () => process.env.TMPDIR ?? "/tmp";
 
@@ -19,6 +21,17 @@ export interface SpawnResult {
 export function claudeLaunchCommand(settingsPath: string, resumeSessionId?: string): string {
   const resume = resumeSessionId ? ` --resume ${shQuote(resumeSessionId)}` : "";
   return `exec claude${resume} --settings "${settingsPath}"`;
+}
+
+export function remoteAgentLaunch(
+  agent: AgentKind,
+  reportPath: string,
+  settingsPath = `${reportPath}.settings.json`,
+): string {
+  if (agent === "claude-code") return `exec claude --settings ${shQuote(settingsPath)}`;
+  if (agent === "codex") return `exec codex -c ${shQuote(remoteCodexNotifyArg(reportPath))}`;
+  if (agent === "opencode") return "exec opencode";
+  return "exec ${SHELL:-bash}";
 }
 
 // Starts an agent in a deck-managed tmux session, wires its events to the hub,
@@ -80,6 +93,73 @@ export async function spawnAgent(opts: {
   return { id: name, target, stop };
 }
 
+async function setRemoteMetaOrKill(
+  host: string,
+  name: string,
+  meta: { agent: AgentKind; cwd: string; title: string },
+): Promise<void> {
+  for (const [key, value] of deckSessionOptions({ agent: meta.agent, cwd: meta.cwd, host, title: meta.title })) {
+    const set = await runRemote(host, `tmux -L deck set-option -t ${shQuote(name)} ${key} ${shQuote(value)}`);
+    if (!set.ok) {
+      await runRemote(host, `tmux -L deck kill-session -t ${shQuote(name)}`);
+      throw new Error(`remote metadata write failed (${key}): ${set.error}`);
+    }
+  }
+}
+
+export async function spawnRemoteAgent(opts: {
+  host: string;
+  agent: AgentKind;
+  name: string;
+  registry: Registry;
+  cwd: string;
+  title?: string;
+}): Promise<SpawnResult> {
+  const { host, agent, name, registry, cwd } = opts;
+  await ensureMaster(host);
+  if (!cwd.startsWith("/")) throw new Error("remote cwd must be an absolute directory");
+  const check = await runRemote(host, `test -d ${shQuote(cwd)} && command -v tmux >/dev/null`);
+  if (!check.ok) throw new Error(`remote workspace invalid: ${check.error ?? "test/tmux check failed"}`);
+
+  const base = `/tmp/deck-${name}`;
+  const reportPath = `${base}.report.sh`;
+  const files: string[] = [];
+  if (agent === "claude-code" || agent === "codex") {
+    files.push(`cat > ${shQuote(reportPath)} <<'DECK_EOF'\n${remoteReportScript(name, agent)}DECK_EOF`);
+    if (agent === "claude-code") {
+      files.push(
+        `cat > ${shQuote(`${reportPath}.settings.json`)} <<'DECK_EOF'\n${JSON.stringify(remoteClaudeSettings(reportPath))}\nDECK_EOF`,
+      );
+    }
+  }
+  files.push(
+    `cat > ${shQuote(`${base}.launch.sh`)} <<'DECK_EOF'\n#!/usr/bin/env bash\n${remoteAgentLaunch(agent, reportPath)}\nDECK_EOF`,
+  );
+  const setup = await runRemote(host, files.join("\n"));
+  if (!setup.ok) throw new Error(`remote setup failed: ${setup.error}`);
+
+  const start = await runRemote(
+    host,
+    `tmux -L deck new-session -d -s ${shQuote(name)} -c ${shQuote(cwd)} ${shQuote(`bash ${base}.launch.sh`)}`,
+  );
+  if (!start.ok) throw new Error(`remote spawn failed: ${start.error}`);
+
+  const title = opts.title ?? name;
+  await setRemoteMetaOrKill(host, name, { agent, cwd, title });
+  registry.upsert({
+    id: name,
+    agent,
+    title,
+    tmuxTarget: `${name}:0.0`,
+    cwd,
+    host,
+    state: "idle",
+    lastActivityAt: Date.now(),
+    lastSummaryLine: "",
+  });
+  return { id: name, target: `${name}:0.0`, stop: () => {} };
+}
+
 export async function spawnRemoteShell(opts: {
   host: string;
   name: string;
@@ -87,19 +167,26 @@ export async function spawnRemoteShell(opts: {
   cwd: string;
   title?: string;
 }): Promise<SpawnResult> {
-  const targetHost = sshTargetFromHost(opts.host);
-  if (!targetHost) throw new Error("remote shell host must be ssh:<target>");
-  const target = await remoteTmuxNewSession(targetHost, opts.name, opts.cwd);
+  const { host, name, registry, cwd } = opts;
+  await ensureMaster(host);
+  if (!cwd.startsWith("/")) throw new Error("remote cwd must be an absolute directory");
+  const start = await runRemote(
+    host,
+    `tmux -L deck new-session -d -s ${shQuote(name)} -c ${shQuote(cwd)} ${shQuote("exec ${SHELL:-bash}")}`,
+  );
+  if (!start.ok) throw new Error(`remote spawn failed: ${start.error}`);
+  const title = opts.title ?? numberedTerminalTitle("generic", host, cwd, registry.list());
+  await setRemoteMetaOrKill(host, name, { agent: "generic", cwd, title });
   opts.registry.upsert({
-    id: opts.name,
+    id: name,
     agent: "generic",
-    title: opts.title ?? numberedTerminalTitle("generic", opts.host, opts.cwd, opts.registry.list()),
-    tmuxTarget: target,
-    cwd: opts.cwd,
-    host: opts.host,
+    title,
+    tmuxTarget: `${name}:0.0`,
+    cwd,
+    host,
     state: "idle",
     lastActivityAt: Date.now(),
     lastSummaryLine: "",
   });
-  return { id: opts.name, target, stop: () => {} };
+  return { id: name, target: `${name}:0.0`, stop: () => {} };
 }
