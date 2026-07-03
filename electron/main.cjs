@@ -8,6 +8,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const { nextAttentionBadge } = require("./attention-badge.cjs");
+const { ptyAttachCommand } = require("./pty-attach.cjs");
 
 const PORT = Number(process.env.DECK_PORT || 8799);
 const URL = `http://localhost:${PORT}/`;
@@ -41,19 +42,6 @@ try {
   console.error("node-pty unavailable:", e && e.message);
 }
 const ptys = new Map();
-
-function shQuote(value) {
-  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
-}
-
-function ptyAttachCommand(host, target) {
-  const session = String(target || "").split(":")[0];
-  if (host && host.startsWith("ssh:")) {
-    const sshTarget = host.slice("ssh:".length);
-    return `exec ssh -tt ${shQuote(sshTarget)} tmux -L deck attach -t ${shQuote(session)}`;
-  }
-  return `tmux -L deck set -g status off 2>/dev/null; exec tmux -L deck attach -t ${shQuote(session)}`;
-}
 
 // Each renderer terminal maps to a pty running `tmux -L deck attach` for one
 // session — tmux stays the substrate; the GUI is just another client.

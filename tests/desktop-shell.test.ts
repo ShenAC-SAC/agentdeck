@@ -11,6 +11,9 @@ const { nextAttentionBadge } = require("../electron/attention-badge.cjs") as {
     focused?: boolean,
   ) => { unread: number; seen: Map<string, string> };
 };
+const { ptyAttachCommand } = require("../electron/pty-attach.cjs") as {
+  ptyAttachCommand: (host: string, target: string) => string;
+};
 
 test("package exposes the AgentDeck product name", async () => {
   const pkg = JSON.parse(await Bun.file("package.json").text()) as { productName?: string };
@@ -37,6 +40,23 @@ test("dev app launcher brands the macOS bundle as AgentDeck", async () => {
   expect(launcher).toContain("Contents\", \"MacOS\", \"Electron\"");
   expect(launcher).toContain("CFBundleDisplayName");
   expect(launcher).toContain("com.agentdeck.dev");
+});
+
+test("remote pty attach uses the reused ssh ControlMaster socket", () => {
+  const cmd = ptyAttachCommand("dev.box@example", "deck_1:0.0");
+  expect(cmd).toContain("exec ssh -tt");
+  expect(cmd).toContain("-o 'ControlPath=");
+  expect(cmd).toContain("deck-ssh-dev.box_example.sock");
+  expect(cmd).toContain("'dev.box@example'");
+  expect(cmd).toContain("tmux -L deck attach -t");
+  expect(cmd).toContain("deck_1");
+  expect(cmd).not.toContain("ssh:");
+});
+
+test("local pty attach keeps using the deck tmux socket", () => {
+  expect(ptyAttachCommand("local", "deck_1:0.0")).toBe(
+    "tmux -L deck set -g status off 2>/dev/null; exec tmux -L deck attach -t 'deck_1'",
+  );
 });
 
 test("dock icon png has a transparent outside corner", async () => {
