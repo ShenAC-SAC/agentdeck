@@ -1,3 +1,4 @@
+import { unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,8 +26,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function removeControlPath(alias: string): void {
+  try {
+    unlinkSync(controlPath(alias));
+  } catch {
+    // Missing or already in use by another process.
+  }
+}
+
 async function runSsh(args: string[], timeoutMs: number): Promise<{ ok: boolean; stdout: string; error?: string }> {
-  const proc = Bun.spawn(["ssh", ...args], { stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn(["ssh", ...args], { stdout: "pipe", stderr: "pipe", env: process.env });
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
@@ -46,10 +55,11 @@ async function runSsh(args: string[], timeoutMs: number): Promise<{ ok: boolean;
 }
 
 export async function ensureMaster(alias: string): Promise<void> {
+  const initialCheck = await runSsh(checkMasterArgs(alias), 1_000);
+  if (initialCheck.ok) return;
+
   const existing = masters.get(alias);
   if (existing) {
-    const check = await runSsh(checkMasterArgs(alias), 1_000);
-    if (check.ok) return;
     try {
       existing.kill();
     } catch {
@@ -57,17 +67,17 @@ export async function ensureMaster(alias: string): Promise<void> {
     }
     masters.delete(alias);
   }
-  const proc = Bun.spawn(["ssh", ...masterArgs(alias)], { stdout: "ignore", stderr: "ignore" });
+  removeControlPath(alias);
+
+  const proc = Bun.spawn(["ssh", ...masterArgs(alias)], { stdout: "ignore", stderr: "ignore", env: process.env });
   masters.set(alias, proc);
-  let exited = false;
   void proc.exited.then(() => {
-    exited = true;
     if (masters.get(alias) === proc) masters.delete(alias);
   });
 
   const deadline = Date.now() + 5_000;
-  let lastError = "";
-  while (!exited && Date.now() < deadline) {
+  let lastError = initialCheck.error ?? "";
+  while (Date.now() < deadline) {
     const check = await runSsh(checkMasterArgs(alias), 1_000);
     if (check.ok) return;
     lastError = check.error ?? "ssh master check failed";
