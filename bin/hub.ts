@@ -12,10 +12,17 @@ import { ensureMaster, closeMaster, runRemote } from "../src/remote/connection";
 import { createRemotePoller } from "../src/remote/poller";
 import { FIELDS } from "../src/remote/ingest";
 import type { RemoteController } from "../src/hub/hub";
+import {
+  addConnectedHost,
+  connectedHostsPath,
+  readConnectedHosts,
+  removeConnectedHost,
+} from "../src/remote/connected-hosts";
 
 const PORT = Number(process.env.DECK_PORT ?? 8799);
 const db = openDb();
 const pollers = new Map<string, ReturnType<typeof createRemotePoller>>();
+const connectedHostStore = connectedHostsPath();
 let hub!: ReturnType<typeof startHub>;
 const remote: RemoteController = {
   hosts: () => readSshHosts(),
@@ -36,11 +43,13 @@ const remote: RemoteController = {
     pollers.set(host, poller);
     await poller.pollOnce();
     poller.start();
+    await addConnectedHost(connectedHostStore, host);
   },
   async disconnect(host: string) {
     pollers.get(host)?.stop();
     pollers.delete(host);
     await closeMaster(host);
+    await removeConnectedHost(connectedHostStore, host);
   },
 };
 hub = startHub(PORT, { db, remote });
@@ -49,6 +58,11 @@ await rehydrate(hub.registry).catch(() => {});
 reconcileOnBoot(db, hub.registry.list());
 const stopPersistence = createPersistenceListener(db, hub.events);
 const stopLiveness = startLivenessMonitor(hub.registry, hub.events);
+for (const host of await readConnectedHosts(connectedHostStore)) {
+  await remote.connect(host).catch((e) => {
+    console.error(`remote reconnect failed for ${host}:`, e instanceof Error ? e.message : String(e));
+  });
+}
 console.log(`deck hub listening on :${PORT}`);
 
 const shutdown = () => {
