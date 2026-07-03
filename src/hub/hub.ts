@@ -10,6 +10,8 @@ export interface RemoteController {
   disconnect: (host: string) => Promise<void>;
   connected: () => string[];
   status: () => { host: string; reachable: boolean }[];
+  killSession?: (host: string, sessionId: string) => Promise<void>;
+  renameSession?: (host: string, sessionId: string, title: string) => Promise<void>;
 }
 
 export interface RemoteSpawnController {

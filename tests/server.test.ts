@@ -179,6 +179,61 @@ test("remote routes expose hosts, status, connect, and disconnect via controller
   }
 });
 
+test("remote routes reject unsafe host aliases", async () => {
+  const hub = startHub(8832, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => [],
+      status: () => [],
+      connect: async () => {
+        throw new Error("connect should not run");
+      },
+      disconnect: async () => {},
+    },
+  });
+  try {
+    const connect = await fetch("http://localhost:8832/remote/connect", {
+      method: "POST",
+      body: JSON.stringify({ host: "-F/tmp/config" }),
+    });
+    expect(connect.status).toBe(400);
+    expect(await connect.text()).toContain("must not start");
+
+    const spawn = await fetch("http://localhost:8832/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "codex", host: "ssh:devbox", mode: "agent", cwd: "/srv/app" }),
+    });
+    expect(spawn.status).toBe(400);
+    expect(await spawn.text()).toContain("bare ssh alias");
+  } finally {
+    hub.stop();
+  }
+});
+
+test("POST /remote/connect returns controller failures as readable errors", async () => {
+  const hub = startHub(8837, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => [],
+      status: () => [],
+      connect: async () => {
+        throw new Error("ssh timed out");
+      },
+      disconnect: async () => {},
+    },
+  });
+  try {
+    const res = await fetch("http://localhost:8837/remote/connect", {
+      method: "POST",
+      body: JSON.stringify({ host: "devbox" }),
+    });
+    expect(res.status).toBe(500);
+    expect(await res.text()).toContain("ssh timed out");
+  } finally {
+    hub.stop();
+  }
+});
+
 test("POST /history/:id/resume 400s a non-Claude or id-less archived row", async () => {
   const db = new Database(":memory:");
   applySchema(db);
@@ -415,6 +470,55 @@ test("DELETE /sessions/:id removes an unknown-tmux session and returns ok", asyn
   }
 });
 
+test("DELETE /sessions/:id kills a remote tmux session before removing it", async () => {
+  const calls: string[] = [];
+  const hub = startHub(8833, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => ["devbox"],
+      status: () => [{ host: "devbox", reachable: true }],
+      connect: async () => {},
+      disconnect: async () => {},
+      killSession: async (host: string, id: string) => {
+        calls.push(`${host}:${id}`);
+      },
+    },
+  });
+  hub.registry.upsert({ ...base, id: "deck_remote", host: "devbox", tmuxTarget: "deck_remote:0.0" });
+  try {
+    const res = await fetch("http://localhost:8833/sessions/deck_remote", { method: "DELETE" });
+    expect(res.status).toBe(200);
+    expect(calls).toEqual(["devbox:deck_remote"]);
+    expect(hub.registry.get("deck_remote")).toBeUndefined();
+  } finally {
+    hub.stop();
+  }
+});
+
+test("DELETE /sessions/:id keeps a remote session when remote kill fails", async () => {
+  const hub = startHub(8834, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => ["devbox"],
+      status: () => [{ host: "devbox", reachable: false }],
+      connect: async () => {},
+      disconnect: async () => {},
+      killSession: async () => {
+        throw new Error("ssh timed out");
+      },
+    },
+  });
+  hub.registry.upsert({ ...base, id: "deck_remote", host: "devbox", tmuxTarget: "deck_remote:0.0" });
+  try {
+    const res = await fetch("http://localhost:8834/sessions/deck_remote", { method: "DELETE" });
+    expect(res.status).toBe(409);
+    expect(await res.text()).toContain("ssh timed out");
+    expect(hub.registry.get("deck_remote")).toBeDefined();
+  } finally {
+    hub.stop();
+  }
+});
+
 test("DELETE /sessions/:id for unknown session -> 404", async () => {
   const hub = startHub(8818);
   try {
@@ -449,6 +553,67 @@ test.skipIf(!hasTmux)("PATCH title persists @deck_title to tmux for rehydration"
   }
 });
 
+test("PATCH title persists remote titles through the remote controller", async () => {
+  const calls: string[] = [];
+  const hub = startHub(8835, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => ["devbox"],
+      status: () => [{ host: "devbox", reachable: true }],
+      connect: async () => {},
+      disconnect: async () => {},
+      renameSession: async (host: string, id: string, title: string) => {
+        calls.push(`${host}:${id}:${title}`);
+      },
+    },
+  });
+  hub.registry.upsert({ ...base, id: "deck_remote", host: "devbox", tmuxTarget: "deck_remote:0.0" });
+  try {
+    const res = await fetch("http://localhost:8835/sessions/deck_remote/title", {
+      method: "PATCH",
+      body: JSON.stringify({ title: "Remote review" }),
+    });
+    expect(res.status).toBe(200);
+    expect(calls).toEqual(["devbox:deck_remote:Remote review"]);
+    expect(hub.registry.get("deck_remote")?.title).toBe("Remote review");
+  } finally {
+    hub.stop();
+  }
+});
+
+test("PATCH title keeps the old remote title when remote persistence fails", async () => {
+  const hub = startHub(8836, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => ["devbox"],
+      status: () => [{ host: "devbox", reachable: false }],
+      connect: async () => {},
+      disconnect: async () => {},
+      renameSession: async () => {
+        throw new Error("ssh timed out");
+      },
+    },
+  });
+  hub.registry.upsert({
+    ...base,
+    id: "deck_remote",
+    title: "Old remote",
+    host: "devbox",
+    tmuxTarget: "deck_remote:0.0",
+  });
+  try {
+    const res = await fetch("http://localhost:8836/sessions/deck_remote/title", {
+      method: "PATCH",
+      body: JSON.stringify({ title: "Remote review" }),
+    });
+    expect(res.status).toBe(409);
+    expect(await res.text()).toContain("ssh timed out");
+    expect(hub.registry.get("deck_remote")?.title).toBe("Old remote");
+  } finally {
+    hub.stop();
+  }
+});
+
 test("POST /jump for unknown session -> 404", async () => {
   const hub = startHub(8805);
   try {
@@ -479,6 +644,13 @@ test("POST /spawn rejects unknown agent names", async () => {
 test("POST /spawn routes a remote agent to the injected remote spawner", async () => {
   const calls: Array<{ host: string; agent: string; cwd: string }> = [];
   const hub = startHub(8815, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => ["devbox"],
+      status: () => [{ host: "devbox", reachable: true }],
+      connect: async () => {},
+      disconnect: async () => {},
+    },
     remoteSpawn: {
       agent: async ({ host, agent, cwd, name, registry }) => {
         calls.push({ host, agent, cwd });
@@ -513,9 +685,62 @@ test("POST /spawn routes a remote agent to the injected remote spawner", async (
   }
 });
 
+test("POST /spawn connects the remote host before spawning when needed", async () => {
+  const calls: string[] = [];
+  let connected = false;
+  const hub = startHub(8831, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => (connected ? ["devbox"] : []),
+      status: () => [{ host: "devbox", reachable: connected }],
+      connect: async (host: string) => {
+        calls.push(`connect:${host}`);
+        connected = true;
+      },
+      disconnect: async () => {},
+    },
+    remoteSpawn: {
+      agent: async ({ host, agent, cwd, name, registry }) => {
+        calls.push(`spawn:${host}:${agent}:${cwd}`);
+        registry.upsert({
+          ...base,
+          id: name,
+          agent,
+          cwd,
+          host,
+          tmuxTarget: `${name}:0.0`,
+          state: "idle",
+        });
+        return { id: name, target: `${name}:0.0`, stop: () => {} };
+      },
+      shell: async () => {
+        throw new Error("shell should not be called");
+      },
+    },
+  });
+  try {
+    const res = await fetch("http://localhost:8831/spawn", {
+      method: "POST",
+      body: JSON.stringify({ agent: "codex", host: "devbox", mode: "agent", cwd: "/srv/app" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(calls).toEqual(["connect:devbox", "spawn:devbox:codex:/srv/app"]);
+  } finally {
+    hub.stop();
+  }
+});
+
 test("POST /spawn routes a remote shell to the injected shell spawner", async () => {
   const calls: Array<{ host: string; cwd: string }> = [];
   const hub = startHub(8816, {
+    remote: {
+      hosts: async () => [{ alias: "devbox" }],
+      connected: () => ["devbox"],
+      status: () => [{ host: "devbox", reachable: true }],
+      connect: async () => {},
+      disconnect: async () => {},
+    },
     remoteSpawn: {
       agent: async () => {
         throw new Error("agent should not be called");

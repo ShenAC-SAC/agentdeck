@@ -9,6 +9,7 @@ export function createRemotePoller(
   deps: { listSessions: () => Promise<string | null>; intervalMs?: number },
 ) {
   const seen = new Map<string, number>();
+  const ignored = new Set<string>();
   let up = false;
   let timer: ReturnType<typeof setInterval> | undefined;
   let inFlight: Promise<void> | undefined;
@@ -26,7 +27,11 @@ export function createRemotePoller(
       return;
     }
     up = true;
-    ingestRows(registry, events, host, parseListSessions(out), seen);
+    const rows = parseListSessions(out);
+    for (const id of [...ignored]) {
+      if (!rows.some((row) => row.name === id)) ignored.delete(id);
+    }
+    ingestRows(registry, events, host, rows.filter((row) => !ignored.has(row.name)), seen);
   }
 
   async function pollOnce(): Promise<void> {
@@ -39,6 +44,9 @@ export function createRemotePoller(
 
   return {
     pollOnce,
+    ignoreSession(sessionId: string) {
+      ignored.add(sessionId);
+    },
     reachable: () => up,
     start() {
       if (!timer) timer = setInterval(() => void pollOnce(), deps.intervalMs ?? 4000);

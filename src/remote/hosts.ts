@@ -7,6 +7,15 @@ export interface SshHost {
   user?: string;
 }
 
+export function validateRemoteHostAlias(host: string): string | undefined {
+  if (!host.trim()) return "remote host must be a non-empty bare ssh alias";
+  if (host === "local") return "remote host must not be local";
+  if (host.startsWith("ssh:")) return "remote host must be a bare ssh alias, not ssh:<target>";
+  if (host.startsWith("-")) return "remote host must not start with '-'";
+  if (/\s|[\u0000-\u001f\u007f]/.test(host)) return "remote host must not contain whitespace or control characters";
+  if (host.includes("/") || host.includes("\\")) return "remote host must not contain a path separator";
+}
+
 export function parseSshConfig(text: string): SshHost[] {
   const hosts: SshHost[] = [];
   let current: SshHost[] = [];

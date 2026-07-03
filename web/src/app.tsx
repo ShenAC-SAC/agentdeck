@@ -94,12 +94,13 @@ export function App() {
       if (!alive) return;
       setAvailableAgents(agents);
       const first = agents.find((a) => a.available)?.agent;
-      if (first && !agents.some((a) => a.available && a.agent === agent)) setAgent(first);
+      const selectable = remoteHosts.length > 0 ? agents : agents.filter((a) => a.available);
+      if (first && !selectable.some((a) => a.agent === agent)) setAgent(first);
     });
     return () => {
       alive = false;
     };
-  }, [agent]);
+  }, [agent, remoteHosts.length]);
 
   useEffect(() => {
     let alive = true;

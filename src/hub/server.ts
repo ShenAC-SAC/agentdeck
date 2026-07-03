@@ -13,6 +13,7 @@ import { tmux } from "../tmux/tmux";
 import type { HubOptions } from "./hub";
 import { detectLocalAgents } from "../agents/availability";
 import { listArchived, deleteArchived, getArchived, markResumed } from "./persistence";
+import { validateRemoteHostAlias } from "../remote/hosts";
 
 // Agents POST their native hook/notify JSON as the body; deck's own sessionId
 // and agent kind ride in the query string (that is what the installed hook adds).
@@ -50,14 +51,30 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         if (!opts.remote) return new Response("remote unavailable", { status: 503 });
         const { host } = (await req.json().catch(() => ({}))) as { host?: unknown };
         if (typeof host !== "string" || !host.trim()) return new Response("missing host", { status: 400 });
-        await opts.remote.connect(host.trim());
+        const alias = host.trim();
+        const hostError = validateRemoteHostAlias(alias);
+        if (hostError) return new Response(hostError, { status: 400 });
+        try {
+          await opts.remote.connect(alias);
+        } catch (e) {
+          return new Response(e instanceof Error ? e.message : "remote connect failed", { status: 500 });
+        }
         return new Response("ok");
       }
 
       if (req.method === "POST" && url.pathname === "/remote/disconnect") {
         if (!opts.remote) return new Response("remote unavailable", { status: 503 });
         const { host } = (await req.json().catch(() => ({}))) as { host?: unknown };
-        if (typeof host === "string" && host.trim()) await opts.remote.disconnect(host.trim());
+        if (typeof host === "string" && host.trim()) {
+          const alias = host.trim();
+          const hostError = validateRemoteHostAlias(alias);
+          if (hostError) return new Response(hostError, { status: 400 });
+          try {
+            await opts.remote.disconnect(alias);
+          } catch (e) {
+            return new Response(e instanceof Error ? e.message : "remote disconnect failed", { status: 500 });
+          }
+        }
         return new Response("ok");
       }
 
@@ -80,9 +97,13 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         if (body.cwd != null && !cwd) return new Response("cwd must be a non-empty absolute directory", { status: 400 });
 
         if (host !== "local") {
+          const hostError = validateRemoteHostAlias(host);
+          if (hostError) return new Response(hostError, { status: 400 });
+          if (!opts.remote) return new Response("remote unavailable", { status: 503 });
           if (!cwd) return new Response("remote cwd must be a non-empty absolute directory", { status: 400 });
           const remoteSpawn = opts.remoteSpawn ?? { agent: spawnRemoteAgent, shell: spawnRemoteShell };
           try {
+            if (!opts.remote.connected().includes(host)) await opts.remote.connect(host);
             const spawned =
               mode === "shell"
                 ? await remoteSpawn.shell({ host, name: `deck_${Date.now()}`, registry, cwd })
@@ -137,6 +158,16 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
         const title = typeof body.title === "string" ? body.title.trim() : "";
         if (!title) return new Response("title must be non-empty", { status: 400 });
         if (title.length > 80) return new Response("title must be 80 characters or fewer", { status: 400 });
+        const before = registry.get(id);
+        if (!before) return new Response("unknown session", { status: 404 });
+        if (before.host !== "local") {
+          if (!opts.remote?.renameSession) return new Response("remote session control unavailable", { status: 503 });
+          try {
+            await opts.remote.renameSession(before.host, id, title);
+          } catch (e) {
+            return new Response(e instanceof Error ? e.message : "remote rename failed", { status: 409 });
+          }
+        }
         const updated = registry.rename(id, title);
         if (!updated) return new Response("unknown session", { status: 404 });
         if (updated.host === "local") {
@@ -184,6 +215,13 @@ export function serve(port: number, registry: Registry, events: EventEmitter, op
             await tmux.run(["kill-session", "-t", id]);
           } catch {
             // tmux session already gone; still drop it from the registry
+          }
+        } else {
+          if (!opts.remote?.killSession) return new Response("remote session control unavailable", { status: 503 });
+          try {
+            await opts.remote.killSession(session.host, id);
+          } catch (e) {
+            return new Response(e instanceof Error ? e.message : "remote close failed", { status: 409 });
           }
         }
         const removed = registry.remove(id);

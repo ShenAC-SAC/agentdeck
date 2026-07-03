@@ -4,6 +4,7 @@ import type { AgentKind } from "../types";
 import { moodFor } from "../mood";
 import type { WorkspaceGroup } from "../workspace";
 import type { AgentAvailability, RemoteHost } from "../api";
+import { visibleAgentChoices } from "../agent-options";
 import { CrewFace } from "./crew-face";
 import { InlineRename } from "./inline-rename";
 
@@ -55,7 +56,7 @@ export function WorkspaceRail({
   onRenameTerminal: (sessionId: string, nextTitle: string) => void;
   onCloseTerminal: (sessionId: string, title: string) => void;
 }) {
-  const agents = availableAgents.filter((a) => a.available);
+  const agents = visibleAgentChoices(availableAgents, remoteHosts.length > 0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedRemoteHost, setSelectedRemoteHost] = useState("");
   const remoteHost = selectedRemoteHost || remoteHosts[0]?.alias || "";

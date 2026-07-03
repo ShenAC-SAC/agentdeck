@@ -83,3 +83,14 @@ test("pollOnce does not start overlapping list-sessions calls", async () => {
   release("");
   await Promise.all([first, second]);
 });
+
+test("ignored remote sessions are not re-added from a stale poll row", async () => {
+  const registry = new Registry();
+  const bus = new EventEmitter();
+  const poller = createRemotePoller(registry, bus, "devbox", { listSessions: async () => rowLive });
+
+  poller.ignoreSession("deck_1");
+  await poller.pollOnce();
+
+  expect(registry.get("deck_1")).toBeUndefined();
+});
