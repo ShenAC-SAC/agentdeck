@@ -205,6 +205,24 @@ body {
   color: var(--text-faint);
 }
 
+.workspace-group__name-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-group__status {
+  flex: none;
+  padding: 2px 5px;
+  border: 1px solid rgba(246, 125, 107, 0.32);
+  border-radius: 6px;
+  color: #f28e7c;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .workspace-group__add {
   width: 22px;
   height: 22px;
@@ -404,20 +422,52 @@ body {
 }
 
 .workspace-rail__remote {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-faint);
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: color 0.14s ease, background 0.14s ease;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
 }
 
-.workspace-rail__remote:hover {
-  color: var(--text-dim);
+.remote-connect__select {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--panel-hi);
+  color: var(--text);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.remote-connect__select:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.remote-connect__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+
+.remote-connect__button:hover:not(:disabled) {
+  color: var(--brass);
+  border-color: var(--brass-soft);
+}
+
+.remote-connect__button:disabled {
+  color: var(--text-faint);
+  cursor: default;
 }
 
 /* ---- Main pane -------------------------------------------------------- */

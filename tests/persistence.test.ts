@@ -117,7 +117,7 @@ test("reconcileOnBoot archives local live rows whose tmux is gone, keeps present
   const d = db();
   upsertLive(d, sess({ id: "alive", state: "working" }));
   upsertLive(d, sess({ id: "dead", state: "working" }));
-  upsertLive(d, sess({ id: "remote", host: "ssh:box", state: "working" }));
+  upsertLive(d, sess({ id: "remote", host: "box", state: "working" }));
   reconcileOnBoot(d, [sess({ id: "alive", state: "working" }), sess({ id: "fresh", state: "idle" })], 700);
   expect((d.query("SELECT status FROM sessions WHERE id='alive'").get() as any).status).toBe("live");
   expect((d.query("SELECT status FROM sessions WHERE id='fresh'").get() as any).status).toBe("live");

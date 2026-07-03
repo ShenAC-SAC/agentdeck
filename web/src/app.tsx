@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   closeSession,
+  connectRemote,
   getAgents,
+  getRemoteHosts,
+  getRemoteStatus,
   getSessions,
   jump,
   renameSessionTitle,
   spawn,
   subscribe,
   type AgentAvailability,
+  type RemoteHost,
 } from "./api";
 import type { AgentKind, Session, SessionState } from "./types";
 import { TerminalView } from "./components/terminal-view";
@@ -36,6 +40,8 @@ export function App() {
   const [availableAgents, setAvailableAgents] = useState<AgentAvailability[]>([
     { agent: "generic", label: "Shell", available: true, command: "shell" },
   ]);
+  const [remoteHosts, setRemoteHosts] = useState<RemoteHost[]>([]);
+  const [remoteReachability, setRemoteReachability] = useState<Map<string, boolean>>(new Map());
   const [toast, setToast] = useState("");
 
   const deckapp = (window as unknown as {
@@ -95,6 +101,35 @@ export function App() {
     };
   }, [agent]);
 
+  useEffect(() => {
+    let alive = true;
+    getRemoteHosts().then((hosts) => {
+      if (alive) setRemoteHosts(hosts);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const refreshRemoteStatus = useCallback(async () => {
+    const status = await getRemoteStatus();
+    setRemoteReachability(new Map(status.map((row) => [row.host, row.reachable])));
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      const status = await getRemoteStatus();
+      if (alive) setRemoteReachability(new Map(status.map((row) => [row.host, row.reachable])));
+    };
+    void refresh();
+    const t = setInterval(refresh, 4_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+
   // Keep the "last activity" telemetry honest as time passes.
   useEffect(() => {
     const t = setInterval(() => setTick((x) => x + 1), 10_000);
@@ -150,17 +185,21 @@ export function App() {
     await openSpawn(agent, "local", dir);
   }
 
-  function onRemoteShellDeferred() {
-    setToast("Remote shell needs a real SSH target scenario before it is enabled.");
-    setTimeout(() => setToast(""), 4500);
+  async function onNewTerminal(workspace: { host: string; cwd: string }) {
+    await openSpawn(agent, workspace.host, workspace.cwd);
   }
 
-  async function onNewTerminal(workspace: { host: string; cwd: string }) {
-    if (workspace.host.startsWith("ssh:")) {
-      await openSpawn("generic", workspace.host, workspace.cwd, "shell");
+  async function onConnectRemote(alias: string) {
+    const connected = await connectRemote(alias);
+    if (!connected.ok) {
+      setToast(connected.error || "remote connect failed");
+      setTimeout(() => setToast(""), 4500);
       return;
     }
-    await openSpawn(agent, workspace.host, workspace.cwd);
+    await refreshRemoteStatus();
+    const cwd = window.prompt(`Project directory on ${alias}`, "/")?.trim();
+    if (!cwd) return;
+    await openSpawn(agent, alias, cwd);
   }
 
   // The rail/terminal own the inline edit UI and hand us the final name.
@@ -197,10 +236,12 @@ export function App() {
         selected={view}
         agent={agent}
         availableAgents={availableAgents}
+        remoteHosts={remoteHosts}
+        remoteReachability={remoteReachability}
         onAgentChange={setAgent}
         onSelect={onSelect}
         onAddWorkspace={onAddWorkspace}
-        onRemoteShellDeferred={onRemoteShellDeferred}
+        onConnectRemote={onConnectRemote}
         onNewTerminal={onNewTerminal}
         onRenameTerminal={onRenameTerminal}
         onCloseTerminal={onCloseTerminal}

@@ -19,7 +19,6 @@ export function workspaceKey(host: string, cwd: string): string {
 
 export function hostLabel(host: string): string {
   if (host === "local") return "Local";
-  if (host.startsWith("ssh:")) return host.slice("ssh:".length);
   return host;
 }
 

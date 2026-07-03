@@ -1,9 +1,9 @@
 import { useState, type CSSProperties } from "react";
-import { LayoutGrid, Pencil, Plus, X } from "lucide-react";
+import { LayoutGrid, Pencil, Plus, Server, X } from "lucide-react";
 import type { AgentKind } from "../types";
 import { moodFor } from "../mood";
 import type { WorkspaceGroup } from "../workspace";
-import type { AgentAvailability } from "../api";
+import type { AgentAvailability, RemoteHost } from "../api";
 import { CrewFace } from "./crew-face";
 import { InlineRename } from "./inline-rename";
 
@@ -31,10 +31,12 @@ export function WorkspaceRail({
   selected,
   agent,
   availableAgents,
+  remoteHosts,
+  remoteReachability,
   onAgentChange,
   onSelect,
   onAddWorkspace,
-  onRemoteShellDeferred,
+  onConnectRemote,
   onNewTerminal,
   onRenameTerminal,
   onCloseTerminal,
@@ -43,16 +45,20 @@ export function WorkspaceRail({
   selected: MainView;
   agent: AgentKind;
   availableAgents: AgentAvailability[];
+  remoteHosts: RemoteHost[];
+  remoteReachability: Map<string, boolean>;
   onAgentChange: (agent: AgentKind) => void;
   onSelect: (view: MainView) => void;
   onAddWorkspace: () => void;
-  onRemoteShellDeferred: () => void;
+  onConnectRemote: (host: string) => void;
   onNewTerminal: (workspace: { host: string; cwd: string }) => void;
   onRenameTerminal: (sessionId: string, nextTitle: string) => void;
   onCloseTerminal: (sessionId: string, title: string) => void;
 }) {
   const agents = availableAgents.filter((a) => a.available);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedRemoteHost, setSelectedRemoteHost] = useState("");
+  const remoteHost = selectedRemoteHost || remoteHosts[0]?.alias || "";
   return (
     <nav className="workspace-rail">
       <div className="sidebar__brand">
@@ -78,7 +84,12 @@ export function WorkspaceRail({
             <div className="workspace-group__head" title={group.cwd}>
               <span className="workspace-group__label">
                 <span className="workspace-group__host">{group.hostName}</span>
-                <span className="workspace-group__name">{group.name}</span>
+                <span className="workspace-group__name-row">
+                  <span className="workspace-group__name">{group.name}</span>
+                  {group.host !== "local" && remoteReachability.get(group.host) === false ? (
+                    <span className="workspace-group__status">unreachable</span>
+                  ) : null}
+                </span>
               </span>
               <span className="nav-item__meta">
                 {group.waiting > 0 ? <span className="nav-item__badge">{group.waiting}</span> : null}
@@ -178,14 +189,33 @@ export function WorkspaceRail({
         <button className="spawn__btn" type="button" onClick={onAddWorkspace}>
           <Plus size={14} strokeWidth={2} /> Add workspace
         </button>
-        <button
-          className="workspace-rail__remote"
-          type="button"
-          onClick={onRemoteShellDeferred}
-          title="Remote hosts arrive with M2 - needs a real SSH target flow first"
-        >
-          Remote hosts · soon
-        </button>
+        <div className="workspace-rail__remote">
+          <select
+            className="remote-connect__select"
+            aria-label="Remote host"
+            value={remoteHost}
+            disabled={remoteHosts.length === 0}
+            onChange={(e) => setSelectedRemoteHost(e.target.value)}
+          >
+            {remoteHosts.length === 0 ? (
+              <option value="">No servers</option>
+            ) : (
+              remoteHosts.map((host) => (
+                <option key={host.alias} value={host.alias}>
+                  {host.alias}
+                </option>
+              ))
+            )}
+          </select>
+          <button
+            className="remote-connect__button"
+            type="button"
+            disabled={!remoteHost}
+            onClick={() => onConnectRemote(remoteHost)}
+          >
+            <Server size={14} strokeWidth={1.8} /> Connect
+          </button>
+        </div>
       </div>
     </nav>
   );

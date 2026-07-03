@@ -26,7 +26,7 @@ test("sweep removes a session whose tmux is gone and emits remove", async () => 
 
 test("sweep never touches remote sessions", async () => {
   const r = new Registry(); const ev = new EventEmitter();
-  r.upsert(s("remote", { host: "ssh:box" }));
+  r.upsert(s("remote", { host: "box" }));
   const { sweep } = createLivenessSweeper(r, ev, {
     listLive: async () => new Set<string>(), capture: async () => "x", now: () => 0, stallMs: 1,
   });

@@ -20,6 +20,37 @@ export async function getAgents(): Promise<AgentAvailability[]> {
   return body.agents?.length ? body.agents : fallback;
 }
 
+export interface RemoteHost {
+  alias: string;
+  hostname?: string;
+  user?: string;
+}
+
+export interface RemoteStatus {
+  host: string;
+  reachable: boolean;
+}
+
+export async function getRemoteHosts(): Promise<RemoteHost[]> {
+  const res = await fetch("/remote/hosts");
+  return res.ok ? ((await res.json()) as RemoteHost[]) : [];
+}
+
+export async function getRemoteStatus(): Promise<RemoteStatus[]> {
+  const res = await fetch("/remote/status");
+  return res.ok ? ((await res.json()) as RemoteStatus[]) : [];
+}
+
+export async function connectRemote(host: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/remote/connect", { method: "POST", body: JSON.stringify({ host }) });
+  return res.ok ? { ok: true } : { ok: false, error: await res.text() };
+}
+
+export async function disconnectRemote(host: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/remote/disconnect", { method: "POST", body: JSON.stringify({ host }) });
+  return res.ok ? { ok: true } : { ok: false, error: await res.text() };
+}
+
 export function subscribe(
   onSession: (s: Session) => void,
   onRemove: (id: string) => void = () => {},

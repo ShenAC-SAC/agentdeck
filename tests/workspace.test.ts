@@ -23,20 +23,20 @@ const s = (
 
 test("workspaceKey separates local and remote directories with the same cwd", () => {
   expect(workspaceKey("local", "/srv/app")).toBe("local\u0000/srv/app");
-  expect(workspaceKey("ssh:devbox", "/srv/app")).toBe("ssh:devbox\u0000/srv/app");
+  expect(workspaceKey("devbox", "/srv/app")).toBe("devbox\u0000/srv/app");
 });
 
-test("hostLabel formats local and ssh host ids", () => {
+test("hostLabel formats local and bare ssh aliases", () => {
   expect(hostLabel("local")).toBe("Local");
-  expect(hostLabel("ssh:devbox")).toBe("devbox");
-  expect(hostLabel("ssh:user@example.com")).toBe("user@example.com");
+  expect(hostLabel("devbox")).toBe("devbox");
+  expect(hostLabel("user@example.com")).toBe("user@example.com");
 });
 
 test("defaultTerminalTitle is human-readable and avoids deck ids", () => {
   expect(defaultTerminalTitle("claude-code", "local", "/Users/mac/learning/agentdeck")).toBe(
     "Claude Code · agentdeck",
   );
-  expect(defaultTerminalTitle("generic", "ssh:devbox", "/srv/api")).toBe("Shell · api");
+  expect(defaultTerminalTitle("generic", "devbox", "/srv/api")).toBe("Shell · api");
 });
 
 test("numberedTerminalTitle keeps first title clean and numbers duplicates", () => {
@@ -56,7 +56,7 @@ test("numberedTerminalTitle keeps first title clean and numbers duplicates", () 
 test("numberedTerminalTitle counts only matching agent host and cwd", () => {
   const existing = [
     { ...s("a", "/repo", "idle", 1, "local"), agent: "codex" as const },
-    { ...s("b", "/repo", "idle", 2, "ssh:devbox"), agent: "claude-code" as const },
+    { ...s("b", "/repo", "idle", 2, "devbox"), agent: "claude-code" as const },
   ];
 
   expect(numberedTerminalTitle("claude-code", "local", "/repo", existing)).toBe("Claude Code · repo");
@@ -97,12 +97,12 @@ test("sorts sessions attention-first within each workspace", () => {
 test("keeps workspaces separate when host differs but cwd matches", () => {
   const groups = groupByWorkspace([
     s("local", "/repo", "idle", 10, "local"),
-    s("remote", "/repo", "idle", 20, "ssh:devbox"),
+    s("remote", "/repo", "idle", 20, "devbox"),
   ]);
   expect(groups).toHaveLength(2);
   expect(groups.map((g) => g.key).sort()).toEqual([
+    workspaceKey("devbox", "/repo"),
     workspaceKey("local", "/repo"),
-    workspaceKey("ssh:devbox", "/repo"),
   ]);
   expect(groups.map((g) => g.hostName).sort()).toEqual(["Local", "devbox"]);
 });
